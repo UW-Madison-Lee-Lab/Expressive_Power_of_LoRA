@@ -63,7 +63,9 @@ class approx_fnn:
             
         opt = optim.Adam(params)
             
-        for i in tqdm(range(n_epochs)):
+        # Initialize tqdm
+        iter_obj = tqdm(range(n_epochs))
+        for i in iter_obj:
             # generate random input from some Gaussian distribution
             x_train = torch.randn(batch_size, self.width) 
             y_train = self.target_m(x_train).detach()
@@ -76,6 +78,8 @@ class approx_fnn:
             loss.backward()
             opt.step()
             
+            # update tqdm description with current loss
+            iter_obj.set_description(f"Loss: {loss.item():.4f}")       
         return adapted_m
     
     def adapt_fnn_ours(
@@ -101,7 +105,8 @@ class approx_fnn:
             for l in range(l1+1, l2)[::-1]:
                 frozen_prod_weight = frozen_prod_weight @ adapted_m.linearlist[l].weight.data
                 frozen_prod_weight_l2L[l-1] = frozen_prod_weight
-                
+            frozen_prod_weight = frozen_prod_weight @ adapted_m.linearlist[l1].weight.data
+            
             # get the target weight
             target_weight = self.target_m.linearlist[i].weight.data
             
@@ -109,10 +114,7 @@ class approx_fnn:
             discrepancy_weight = target_weight - frozen_prod_weight
             
             # perform SVD on the discrepancy matrix
-            U, S, V = torch.svd(discrepancy_weight)
-            # Convert S to a diagonal matrix D
-            D = torch.zeros_like(discrepancy_weight)
-            D.diagonal().copy_(S)
+            _, _, V = torch.svd(discrepancy_weight)
             
             # compute the lora adapter for each layer
             adapted_prod_weight = torch.eye(self.width)
@@ -123,23 +125,23 @@ class approx_fnn:
                 adapted_prod_weight = (adapted_m.linearlist[l].weight.data + lora_adapter[l]) @ adapted_prod_weight
                 
                 # update the lora weights in the adapter model
-                U_Q, S_Q, V_Q = torch.svd(Ql)
+                U_Q, S_Q, V_Q = torch.svd(lora_adapter[l])
                 adapted_m.loralist[l].lora_A.data = U_Q @ torch.diag(S_Q)
                 adapted_m.loralist[l].lora_B.data = V_Q
-                
+            
             # update the bias in the adapter model
             if self.use_bias:
                 calibrate_bias = torch.zeros(self.width)
                 adapted_prod_weight_rev = torch.eye(self.width)
                 adapted_prod_weight_l2L = {(l2-1): adapted_prod_weight_rev}
                 for l in range(l1+1, l2)[::-1]:
-                    adapted_prod_weight_rev = adapted_prod_weight_rev @ adapted_m.linearlist[l].weight.data
+                    adapted_prod_weight_rev = adapted_prod_weight_rev @ (adapted_m.linearlist[l].weight.data + adapted_m.loralist[l].lora_A @ adapted_m.loralist[l].lora_B.T)
                     adapted_prod_weight_l2L[l-1] = adapted_prod_weight_rev
                 
                 for l in range(l1, l2):
                     
-                    # update the intermediate output
-                    z = adapted_m.linearlist[l].weight.data @ z
+                    # update the intermediate output without the bias
+                    z = z @ adapted_m.linearlist[l].weight.data.T + adapted_m.loralist[l].forward(z)
                     
                     # update the bias in the adapter model
                     if l < l2-1:
@@ -154,7 +156,7 @@ class approx_fnn:
                     else:
                         # matching the bias in the target model
                         adapted_m.linearlist[l].bias.data = self.target_m.linearlist[i].bias.data - calibrate_bias
-                        
+
         return adapted_m
                         
                     
@@ -163,6 +165,8 @@ class approx_fnn:
         adapted_model,
         n_test,
     ):
+        adapted_model.eval()
+        
         # generate random input from some Gaussian distribution
         x_test = torch.randn(n_test, self.width) 
         y_test = self.target_m(x_test).detach()

@@ -22,6 +22,6 @@ def generate_diag_matrix(D, r1, r2):
     mat = torch.zeros(D, D)
     
     # Set the diagonal entries from r1 to r2 to 1
-    mat[r1:r2+1, r1:r2+1] = torch.eye(r2 - r1 + 1)
+    mat[r1:r2, r1:r2] = torch.eye(r2 - r1)
     
     return mat

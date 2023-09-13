@@ -15,7 +15,7 @@ class LoRA(nn.Module):
         self.lora_B.requires_grad = True
         
     def forward(self, x):
-        return x @ self.lora_A @ self.lora_B.T
+        return torch.matmul(x, self.lora_B @ self.lora_A.T)
 
 class FNN(nn.Module):
     def __init__(
@@ -48,10 +48,9 @@ class FNN(nn.Module):
         
     def forward(self, x):
         for l in range(self.depth):
-            x = self.linearlist[l](x)
-            
-            if self.apply_lora:
-                x = x + self.loralist[l](x)
+            linear_x = self.linearlist[l](x)
+            lora_x = self.loralist[l](x) if self.apply_lora else 0
+            x = linear_x + lora_x
             
             x = self.activation(x)         
         return x
