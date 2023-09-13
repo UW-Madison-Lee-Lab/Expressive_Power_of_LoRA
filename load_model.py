@@ -1,8 +1,5 @@
-import torch, copy
-from torch import nn, optim
-from tqdm import tqdm
-import pandas as pd
-import numpy as np
+import torch
+from torch import nn
 
 class LoRA(nn.Module):
     def __init__(self, width, rank, std = .25):
@@ -43,10 +40,11 @@ class FNN(nn.Module):
         else:
             raise NotImplementedError(f'We only support relu and linear activation, and {activation} is not supported.')
         
-        self.loralist = nn.ModuleList([LoRA(width, rank, std) for _ in range(depth)])
-        self.linearlist = nn.ModuleList([nn.Linear(width, width, bias=use_bias) for _ in range(depth)])
-        
         self.apply_lora = apply_lora
+        if self.apply_lora: 
+            self.loralist = nn.ModuleList([LoRA(width, rank, std) for _ in range(depth)])
+        
+        self.linearlist = nn.ModuleList([nn.Linear(width, width, bias=use_bias) for _ in range(depth)])
         
     def forward(self, x):
         for l in range(self.depth):
@@ -55,8 +53,7 @@ class FNN(nn.Module):
             if self.apply_lora:
                 x = x + self.loralist[l](x)
             
-            x = self.activation(x)
-            
+            x = self.activation(x)         
         return x
         
 class TFB(nn.Module):
@@ -91,3 +88,5 @@ class TFN(nn.Module):
             x = block(x)
             
         x = self.output_layer(x)
+        
+        return x
