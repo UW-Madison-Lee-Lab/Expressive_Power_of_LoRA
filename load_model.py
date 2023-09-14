@@ -142,20 +142,20 @@ class MultiheadAttention(nn.Module):
                 Wv_.append(self.Wv[h])
                 Wo_.append(self.Wo[h])
                 
-            attn_score = torch.bmm(matmul(Wk_[h], x).permute(0,2,1), matmul(Wq_[h], x))
+            self.attn_score = torch.bmm(matmul(Wk_[h], x).permute(0,2,1), matmul(Wq_[h], x))
             
             # compute the attention weights for each head
             # softmax is applied column-wise
             # attn_weights: (batch_size, seq_length, seq_length)
-            attn_weights = torch.softmax(attn_score, dim = 1)
+            attn_weights = torch.softmax(self.attn_score, dim = 1)
             
             # compute the output for each head
             # attn_output: (batch_size, embed_dim, seq_length)
-            attn_output = matmul(Wv_[h], x) @ attn_weights
+            self.attn_output = matmul(Wv_[h], x) @ attn_weights
             
             # project the output and combine the results from all heads
             # result: (batch_size, embed_dim, seq_length)
-            result = result + matmul(Wo_[h], attn_output)
+            result = result + matmul(Wo_[h], self.attn_output)
         
         # batch_size * embed_dim * seq_length
         return result
@@ -169,13 +169,11 @@ class TFB(nn.Module):
         std,
         apply_lora,
         is_last,
-        seq_length,
     ):
         super().__init__()
         
         self.embed_dim = embed_dim
         self.n_head = n_head
-        self.seq_length = seq_length
         
         # initialize the multi-head attention and feed-forward network
         self.attention = MultiheadAttention(
@@ -207,7 +205,7 @@ class TFB(nn.Module):
             f2_output: (batch_size, embed_dim, seq_length)
         """
         
-        batch_size = x.shape[0]
+        batch_size, seq_length = x.shape[0], x.shape[2]
         
         # multi-head attention: (batch_size, embed_dim, seq_length)
         attn_output = self.attention(x)
@@ -220,7 +218,7 @@ class TFB(nn.Module):
         # 2. apply the first feed-forward layer -> (batch_size * seq_length, embed_dim)
         f1_output_reshaped = self.feed_forward[0](attn_output_reshaped)
         # 3. permute it back to (batch_size, embed_dim, seq_length)
-        f1_output = f1_output_reshaped.reshape(batch_size, self.seq_length, self.embed_dim).permute(0, 2, 1)
+        f1_output = f1_output_reshaped.reshape(batch_size, seq_length, self.embed_dim).permute(0, 2, 1)
         # 4. apply relu
         f1_output = torch.relu(f1_output)
         
@@ -230,7 +228,7 @@ class TFB(nn.Module):
         # 2. apply the second feed-forward layer -> (batch_size * seq_length, embed_dim)
         f2_output_reshaped = self.feed_forward[1](f1_output_reshaped)
         # 3. permute it back to (batch_size, embed_dim, seq_length)
-        f2_output = f2_output_reshaped.reshape(batch_size, self.seq_length, self.embed_dim).permute(0, 2, 1)
+        f2_output = f2_output_reshaped.reshape(batch_size, seq_length, self.embed_dim).permute(0, 2, 1)
         # 4. apply lora if this is the last block
         if self.apply_lora and self.is_last:
             # f2_output: (batch_size, embed_dim, seq_length)
@@ -247,12 +245,10 @@ class TFN(nn.Module):
         rank,
         std,
         apply_lora,
-        seq_length,
     ):
         super().__init__()
         
         self.embed_dim = embed_dim
-        self.seq_length = seq_length
         
         self.tfblist = nn.ModuleList([TFB(
                 embed_dim, 
@@ -261,7 +257,6 @@ class TFN(nn.Module):
                 std,
                 apply_lora,
                 is_last = False,
-                seq_length = seq_length,
             ) for _ in range(depth-1)]
         )
         
@@ -272,7 +267,6 @@ class TFN(nn.Module):
                 std,
                 apply_lora,
                 is_last = True,
-                seq_length = seq_length,
         ))
         
         self.output_layer = nn.Linear(embed_dim, embed_dim, bias = False)
@@ -292,7 +286,7 @@ class TFN(nn.Module):
             x: (batch_size, embed_dim, seq_length)
         """
         
-        batch_size = x.shape[0]
+        batch_size, seq_length = x.shape[0], x.shape[2]
         
         for block in self.tfblist:
             x = block(x)
@@ -303,7 +297,7 @@ class TFN(nn.Module):
         # 2. apply the output layer -> (batch_size * seq_length, embed_dim)
         x_reshaped = self.output_layer(x_reshaped) 
         # 3. permute it back to (batch_size, embed_dim, seq_length)
-        x = x_reshaped.reshape(batch_size, self.seq_length, self.embed_dim).permute(0, 2, 1)
+        x = x_reshaped.reshape(batch_size, seq_length, self.embed_dim).permute(0, 2, 1)
         if self.apply_lora:
             x = x + self.output_layer_lora(x)
             

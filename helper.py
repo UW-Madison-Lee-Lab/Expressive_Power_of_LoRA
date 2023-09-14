@@ -44,7 +44,7 @@ def matmul(W, x):
     # Remove singleton dimension if necessary
     return result.squeeze(0)
 
-def our_construction(target_weight, frozen_weights, rank, log_wandb):
+def our_construction(target_weight, frozen_weights, rank, log_wandb, atol = 1e-3):
     """
     Our construction of low-rank adapter for matrix approximation
 
@@ -59,10 +59,9 @@ def our_construction(target_weight, frozen_weights, rank, log_wandb):
     
     frozen_prod_weight = torch.eye(width)
     frozen_prod_weight_2depth = {(depth - 1): frozen_prod_weight}
-    for l in range(depth)[::-1]:
+    for l in range(1,depth)[::-1]:
         frozen_prod_weight = frozen_prod_weight @ frozen_weights[l]
         frozen_prod_weight_2depth[l-1] = frozen_prod_weight
-        
     frozen_prod_weight = frozen_prod_weight @ frozen_weights[0]
     
     # compute the discrepancy matrix
@@ -90,4 +89,9 @@ def our_construction(target_weight, frozen_weights, rank, log_wandb):
         lora_A.append(U_Q @ torch.diag(S_Q))
         lora_B.append(V_Q)
     
+    # Check if the manual and automatic outputs match
+    match = torch.allclose(adapted_prod_weight, target_weight, atol=atol)
+    if (not match) and (rank >= width // depth + int(width % depth != 0)):
+        print("WARNING: our construction does not offer exact representation!")
+        print("The maximum discrepancy is", (torch.abs(adapted_prod_weight - target_weight).max()/torch.abs(target_weight).max()).item())
     return lora_A, lora_B    

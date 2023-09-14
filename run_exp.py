@@ -38,9 +38,9 @@ class approx_fnn:
         
         # perform finetune
         if method == 'ours':
-            adapted_m = self.adapt_fnn_ours(batch_size = batch_size)
+            adapted_m = self.adapt_ours(batch_size = batch_size)
         elif method == 'sgd':
-            adapted_m = self.adapt_fnn_sgd(
+            adapted_m = self.adapt_sgd(
                 n_epochs = n_epochs,
                 batch_size = batch_size,
                 lr = lr,
@@ -96,7 +96,7 @@ class approx_fnn:
                 discrepency_matrix = self.target_m.linearlist[i].weight.data - frozen_prod_weight
                 self.target_m.linearlist[i].weight.data = frozen_prod_weight + torch.eye(self.width) * torch.mean(torch.svd(discrepency_matrix)[1])
 
-    def adapt_fnn_sgd(
+    def adapt_sgd(
         self,
         n_epochs,
         batch_size,
@@ -153,7 +153,7 @@ class approx_fnn:
         
         return adapted_m
     
-    def adapt_fnn_ours(
+    def adapt_ours(
         self,
         batch_size,
     ):
@@ -166,7 +166,6 @@ class approx_fnn:
             # generate random input from some Gaussian distribution
             z = torch.randn(batch_size, self.width) 
         
-        lora_adapter = {}
         for i in range(self.target_depth):
             # use range(l1, l2) layers in the adapted model to approximate the ith layer in the target model 
             l1 = i * tdl
@@ -280,7 +279,6 @@ class approx_tfn:
             rank = self.rank,
             std = std,
             apply_lora = False,
-            seq_length = self.seq_length,
         )
         
         self.frozen_m = TFN(
@@ -290,10 +288,9 @@ class approx_tfn:
             rank = self.rank,
             std = std,
             apply_lora = True,
-            seq_length = self.seq_length,
         )
         
-    def adapt_tfn_sgd(
+    def adapt_sgd(
         self,
         n_epochs,
         batch_size,
@@ -364,7 +361,7 @@ class approx_tfn:
             
         return adapted_m
     
-    def adapt_tfn_ours(
+    def adapt_ours(
         self,
     ):
         set_seed()
@@ -399,6 +396,11 @@ class approx_tfn:
                 adapted_attention.loralist[h*4+1].lora_A.data = lora_B[1]
                 adapted_attention.loralist[h*4+1].lora_B.data = lora_A[1]
                 
+                print(target_kq)
+                print((frozen_kq[1] + lora_B[1] @ lora_A[1].T) @ (frozen_kq[0] + lora_A[0] @ lora_B[0].T))
+                print((frozen_kq[1] + lora_A[1] @ lora_B[1].T) @ (frozen_kq[0] + lora_A[0] @ lora_B[0].T))
+                print((frozen_kq[1] + lora_A[1] @ lora_B[1].T) @ (frozen_kq[0] + lora_A[0] @ lora_B[0].T))
+                
                 # consider component: W_O^h * W_V^h
                 # get the target matrix and the frozen matrix
                 # treat  W_V^h as the first layer, and W_O^h as the second layer
@@ -418,6 +420,16 @@ class approx_tfn:
                 # update the adapted for W_O^h
                 adapted_attention.loralist[h*4+3].lora_A.data = lora_A[1]
                 adapted_attention.loralist[h*4+3].lora_B.data = lora_B[1]
+                
+                Z = torch.randn(self.batch_size, self.embed_dim, self.seq_length)
+                print(target_attention(Z))
+                print(adapted_attention(Z))
+                print(target_attention.attn_score)
+                print(adapted_attention.attn_score)
+                
+                print(target_attention.attn_output)
+                print(adapted_attention.attn_output)
+                break
                 
             # update the bias in the feedforward network
             # match the bias of the first feedforward layer
