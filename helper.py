@@ -84,7 +84,7 @@ def our_construction(target_weight, frozen_weights, rank, log_wandb):
     for l in range(depth):
         # compute the lora adapter for the l-th layer
         Ql = V @ generate_diag_matrix(width, min(rank*l, width), min(rank*(l+1), width)) @ V.T
-        lora_adapter = torch.invserse(frozen_prod_weight_2depth[l]) @ discrepancy_weight @ Ql @ torch.inverse(adapted_prod_weight)
+        lora_adapter = torch.inverse(frozen_prod_weight_2depth[l]) @ discrepancy_weight @ Ql @ torch.inverse(adapted_prod_weight)
         adapted_prod_weight = (frozen_weights[l] + lora_adapter) @ adapted_prod_weight
         
         # update the lora weights in the lora adapter

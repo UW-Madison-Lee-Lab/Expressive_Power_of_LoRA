@@ -1,9 +1,8 @@
 from load_model import *
-from helper import set_seed, generate_diag_matrix
 from copy import deepcopy
 from tqdm import tqdm
 from torch import optim
-import wandb, argparse
+import argparse
 
 class approx_fnn:
     def __init__(
@@ -173,40 +172,18 @@ class approx_fnn:
             l1 = i * tdl
             l2 = (i + 1) * tdl if i < self.target_depth - 1 else self.frozen_depth
             
-            # compute the product of the frozen matrices
-            frozen_prod_weight = torch.eye(self.width)
-            frozen_prod_weight_l2L = {(l2-1): frozen_prod_weight}
-            for l in range(l1+1, l2)[::-1]:
-                frozen_prod_weight = frozen_prod_weight @ adapted_m.linearlist[l].weight.data
-                frozen_prod_weight_l2L[l-1] = frozen_prod_weight
-            frozen_prod_weight = frozen_prod_weight @ adapted_m.linearlist[l1].weight.data
-            
-            # get the target weight
+            # get the target and frozen weights for l1 to l2 layers
             target_weight = self.target_m.linearlist[i].weight.data
-            
-            # compute the discrepancy matrix
-            discrepancy_weight = target_weight - frozen_prod_weight
-            
-            # perform SVD on the discrepancy matrix
-            _, S, V = torch.svd(discrepancy_weight)
-            
-            if self.wandb:
-                wandb.log({'singular_values': S})
-            else:
-                print(f"Singular values: {S}")
-            
-            # compute the lora adapter for each layer
-            adapted_prod_weight = torch.eye(self.width)
+            frozen_weights = []
             for l in range(l1, l2):
-                # compute the lora adapter for the lth layer
-                Ql = V @ generate_diag_matrix(self.width, min(self.rank*(l-l1), self.width), min(self.rank*(l-l1+1), self.width)) @ V.T
-                lora_adapter[l] = torch.inverse(frozen_prod_weight_l2L[l]) @ discrepancy_weight @ Ql @ torch.inverse(adapted_prod_weight)
-                adapted_prod_weight = (adapted_m.linearlist[l].weight.data + lora_adapter[l]) @ adapted_prod_weight
+                frozen_weights.append(adapted_m.linearlist[l].weight.data)
                 
+            lora_A, lora_B = our_construction(target_weight, frozen_weights, self.rank, self.wandb)
+                
+            for l in range(l1, l2):
                 # update the lora weights in the adapter model
-                U_Q, S_Q, V_Q = torch.svd(lora_adapter[l])
-                adapted_m.loralist[l].lora_A.data = U_Q @ torch.diag(S_Q)
-                adapted_m.loralist[l].lora_B.data = V_Q
+                adapted_m.loralist[l].lora_A.data = lora_A[l-l1]
+                adapted_m.loralist[l].lora_B.data = lora_B[l-l1]
             
             # update the bias in the adapter model
             if self.use_bias:
@@ -262,6 +239,144 @@ class approx_fnn:
             wandb.log({'test_loss': self.test_loss})
         else:
             print(f"Test loss: {self.test_loss:.4f}")
+            
+class approx_tfn:
+    def __init__(
+        self,
+        embed_dim,
+        n_head,
+        depth,
+        rank,
+        batch_size,
+        seq_length,
+        std,
+        init_mode,
+        log_wandb = 0,
+    ):
+        set_seed()
+        
+        self.embed_dim = embed_dim
+        self.n_head = n_head
+        self.depth = depth
+        self.rank = rank
+        self.batch_size = batch_size
+        self.seq_length = seq_length
+        self.wandb = log_wandb
+        
+        self.init_models(std, init_mode)
+        
+        self.criterion = nn.MSELoss()
+        
+    def init_models(
+        self,
+        std,
+    ):
+        # randomly initialize the target model
+        self.target_m = TFN(
+            embed_dim = self.embed_dim,
+            n_head = self.n_head,
+            depth = self.depth,
+            rank = self.rank,
+            std = std,
+            apply_lora = False,
+            batch_size = self.batch_size,
+            seq_length = self.seq_length,
+        )
+        
+        self.frozen_m = TFN(
+            embed_dim = self.embed_dim,
+            n_head = self.n_head,
+            depth = self.depth,
+            rank = self.rank,
+            std = std,
+            apply_lora = True,
+            batch_size = self.batch_size,
+            seq_length = self.seq_length,
+        )
+        
+    def adapt_tfn_sgd(
+        self,
+        n_epochs,
+        batch_size,
+        lr, 
+        weight_decay = 0,
+    ):
+        set_seed()
+        
+        adapted_m = deepcopy(self.frozen_m)
+        
+        # specify the lora adapter as the parameters to be optimized
+        params = []
+        for l in range(self.depth):
+            # lora on the attention layers
+            attention_lora = adapted_m.tfblist[l].attention.loralist
+            for i in range(len(attention_lora)):
+                params.append({'params': attention_lora[i].lora_A, 'lr': lr, 'weight_decay': weight_decay})
+                params.append({'params': attention_lora[i].lora_B, 'lr': lr, 'weight_decay': weight_decay})
+                
+            # lora on the feedforward layers
+            if l == self.depth - 1:
+                W2_lora = adapted_m.tfblist[l].W2_lora
+                params.append({'params': W2_lora.lora_A, 'lr': lr, 'weight_decay': weight_decay})
+                params.append({'params': W2_lora.lora_B, 'lr': lr, 'weight_decay': weight_decay})
+            
+        # lora on the output layer 
+        output_lora = adapted_m.output_layer_lora
+        params.append({'params': output_lora.lora_A, 'lr': lr, 'weight_decay': weight_decay})
+        params.append({'params': output_lora.lora_B, 'lr': lr, 'weight_decay': weight_decay})
+        
+        opt = optim.Adam(params)
+        
+        # Initialize tqdm
+        iter_obj = tqdm(range(n_epochs))
+        # finetuning
+        for i in iter_obj:
+            # generate random input from some Gaussian distribution
+            X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
+            Y_train = self.target_m(X_train).detach()
+            Y_train.requires_grad = False
+            
+            Y_pred = adapted_m(X_train)
+            self.train_loss = self.criterion(Y_pred, Y_train)
+            
+            if self.wandb:
+                wandb.log({'train_loss': self.train_loss.item()})
+                
+            opt.zero_grad()
+            self.train_loss.backward()
+            opt.step()
+            
+            # update tqdm description with current loss
+            iter_obj.set_description(f"Loss of SGD: {self.train_loss.item():.4f}")
+            
+        # validation
+        adapted_m.eval()
+        X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
+        Y_val = self.target_m(X_val).detach()
+        Y_val.requires_grad = False
+        
+        Y_pred = adapted_m(X_val)
+        self.val_loss = self.criterion(Y_pred, Y_val)
+        
+        if self.wandb:
+            wandb.log({'val_loss': self.val_loss.item()})
+        else:
+            print(f"Validation loss: {self.val_loss.item():.4f}")
+            
+        return adapted_m
+    
+    def adapt_tfn_ours(
+        self,
+        batch_size,
+    ):
+        set_seed()
+        
+        adapted_m = deepcopy(self.frozen_m)
+        
+        
+            
+            
+            
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
