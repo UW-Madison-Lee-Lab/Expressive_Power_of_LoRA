@@ -42,9 +42,7 @@ def matmul(W, x):
     result = torch.matmul(W_expanded, x)
     
     # Remove singleton dimension if necessary
-    result = result.squeeze(0)
-    
-    return result
+    return result.squeeze(0)
 
 def our_construction(target_weight, frozen_weights, rank, log_wandb):
     """

@@ -123,22 +123,26 @@ class MultiheadAttention(nn.Module):
             (batch_size, embed_dim, seq_length)
         """
         
-        result = torch.zeros_like(q)
+        result = torch.zeros_like(x)
         
         # compute the output for each head
+        Wq_, Wk_, Wv_, Wo_ = [], [], [], []
         for h in range(self.n_head):
             # compute the attention score for each head
             # attn_score: (batch_size, seq_length, seq_length)
             if self.apply_lora:
-                Wq = self.Wq[h] + self.loralist[h*4].lora_A @ self.loralist[h*4].lora_B.T
-                Wk = self.Wk[h] + self.loralist[h*4+1].lora_A @ self.loralist[h*4+1].lora_B.T
-                Wv = self.Wv[h] + self.loralist[h*4+2].lora_A @ self.loralist[h*4+2].lora_B.T
-                Wo = self.Wo[h] + self.loralist[h*4+3].lora_A @ self.loralist[h*4+3].lora_B.T
+                Wq_.append(self.Wq[h] + self.loralist[h*4].lora_A @ self.loralist[h*4].lora_B.T)
+                Wk_.append(self.Wk[h] + self.loralist[h*4+1].lora_A @ self.loralist[h*4+1].lora_B.T)
+                Wv_.append(self.Wv[h] + self.loralist[h*4+2].lora_A @ self.loralist[h*4+2].lora_B.T)
+                Wo_.append(self.Wo[h] + self.loralist[h*4+3].lora_A @ self.loralist[h*4+3].lora_B.T)
                 
             else:
-                Wq, Wk, Wv, Wo = self.Wq[h], self.Wk[h], self.Wv[h], self.Wo[h]
+                Wq_.append(self.Wq[h])
+                Wk_.append(self.Wk[h])
+                Wv_.append(self.Wv[h])
+                Wo_.append(self.Wo[h])
                 
-            attn_score = matmul(Wk, x).T @ matmul(Wq, x)
+            attn_score = torch.bmm(matmul(Wk_[h], x).permute(0,2,1), matmul(Wq_[h], x))
             
             # compute the attention weights for each head
             # softmax is applied column-wise
@@ -147,11 +151,11 @@ class MultiheadAttention(nn.Module):
             
             # compute the output for each head
             # attn_output: (batch_size, embed_dim, seq_length)
-            attn_output = matmul(Wv, x) @ attn_weights
+            attn_output = matmul(Wv_[h], x) @ attn_weights
             
             # project the output and combine the results from all heads
             # result: (batch_size, embed_dim, seq_length)
-            result += matmul(Wo, attn_output)
+            result = result + matmul(Wo_[h], attn_output)
         
         # batch_size * embed_dim * seq_length
         return result
@@ -165,14 +169,12 @@ class TFB(nn.Module):
         std,
         apply_lora,
         is_last,
-        batch_size, 
         seq_length,
     ):
         super().__init__()
         
         self.embed_dim = embed_dim
         self.n_head = n_head
-        self.batch_size = batch_size
         self.seq_length = seq_length
         
         # initialize the multi-head attention and feed-forward network
@@ -204,8 +206,11 @@ class TFB(nn.Module):
         Returns:
             f2_output: (batch_size, embed_dim, seq_length)
         """
+        
+        batch_size = x.shape[0]
+        
         # multi-head attention: (batch_size, embed_dim, seq_length)
-        attn_output = self.attention(x, x, x)
+        attn_output = self.attention(x)
         
         # feed-forward network
         
@@ -215,7 +220,7 @@ class TFB(nn.Module):
         # 2. apply the first feed-forward layer -> (batch_size * seq_length, embed_dim)
         f1_output_reshaped = self.feed_forward[0](attn_output_reshaped)
         # 3. permute it back to (batch_size, embed_dim, seq_length)
-        f1_output = f1_output_reshaped.reshape(self.batch_size, self.seq_length, self.embed_dim).permute(0, 2, 1)
+        f1_output = f1_output_reshaped.reshape(batch_size, self.seq_length, self.embed_dim).permute(0, 2, 1)
         # 4. apply relu
         f1_output = torch.relu(f1_output)
         
@@ -225,11 +230,11 @@ class TFB(nn.Module):
         # 2. apply the second feed-forward layer -> (batch_size * seq_length, embed_dim)
         f2_output_reshaped = self.feed_forward[1](f1_output_reshaped)
         # 3. permute it back to (batch_size, embed_dim, seq_length)
-        f2_output = f2_output_reshaped.reshape(self.batch_size, self.seq_length, self.embed_dim).permute(0, 2, 1)
+        f2_output = f2_output_reshaped.reshape(batch_size, self.seq_length, self.embed_dim).permute(0, 2, 1)
         # 4. apply lora if this is the last block
         if self.apply_lora and self.is_last:
             # f2_output: (batch_size, embed_dim, seq_length)
-            f2_output += self.W2_lora(f1_output)
+            f2_output = f2_output + self.W2_lora(f1_output)
         
         return f2_output
     
@@ -242,10 +247,12 @@ class TFN(nn.Module):
         rank,
         std,
         apply_lora,
-        batch_size,
         seq_length,
     ):
         super().__init__()
+        
+        self.embed_dim = embed_dim
+        self.seq_length = seq_length
         
         self.tfblist = nn.ModuleList([TFB(
                 embed_dim, 
@@ -254,7 +261,6 @@ class TFN(nn.Module):
                 std,
                 apply_lora,
                 is_last = False,
-                batch_size = batch_size,
                 seq_length = seq_length,
             ) for _ in range(depth-1)]
         )
@@ -266,7 +272,6 @@ class TFN(nn.Module):
                 std,
                 apply_lora,
                 is_last = True,
-                batch_size = batch_size,
                 seq_length = seq_length,
         ))
         
@@ -286,11 +291,20 @@ class TFN(nn.Module):
         Returns:
             x: (batch_size, embed_dim, seq_length)
         """
+        
+        batch_size = x.shape[0]
+        
         for block in self.tfblist:
             x = block(x)
             
-        x = self.output_layer(x) 
+        # apply the output layer
+        # 1. reshape x to (batch_size * seq_length, embed_dim)
+        x_reshaped = x.permute(0, 2, 1).reshape(-1, self.embed_dim)
+        # 2. apply the output layer -> (batch_size * seq_length, embed_dim)
+        x_reshaped = self.output_layer(x_reshaped) 
+        # 3. permute it back to (batch_size, embed_dim, seq_length)
+        x = x_reshaped.reshape(batch_size, self.seq_length, self.embed_dim).permute(0, 2, 1)
         if self.apply_lora:
-            x += self.output_layer_lora(x)
+            x = x + self.output_layer_lora(x)
             
         return x

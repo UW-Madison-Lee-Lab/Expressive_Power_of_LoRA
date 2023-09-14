@@ -249,9 +249,9 @@ class approx_tfn:
         rank,
         batch_size,
         seq_length,
-        std,
-        init_mode,
+        init_mode = 'default',
         log_wandb = 0,
+        std = .25
     ):
         set_seed()
         
@@ -270,6 +270,7 @@ class approx_tfn:
     def init_models(
         self,
         std,
+        init_mode,
     ):
         # randomly initialize the target model
         self.target_m = TFN(
@@ -279,7 +280,6 @@ class approx_tfn:
             rank = self.rank,
             std = std,
             apply_lora = False,
-            batch_size = self.batch_size,
             seq_length = self.seq_length,
         )
         
@@ -290,7 +290,6 @@ class approx_tfn:
             rank = self.rank,
             std = std,
             apply_lora = True,
-            batch_size = self.batch_size,
             seq_length = self.seq_length,
         )
         
@@ -413,12 +412,12 @@ class approx_tfn:
                 lora_A, lora_B = our_construction(target_ov, frozen_ov, self.rank, self.wandb)
                 
                 # update the adapted for W_V^h
-                adapted_attention.loralist[h*4+3].lora_A.data = lora_A[0]
-                adapted_attention.loralist[h*4+3].lora_B.data = lora_B[0]
+                adapted_attention.loralist[h*4+2].lora_A.data = lora_A[0]
+                adapted_attention.loralist[h*4+2].lora_B.data = lora_B[0]
                 
                 # update the adapted for W_O^h
-                adapted_attention.loralist[h*4+4].lora_A.data = lora_A[1]
-                adapted_attention.loralist[h*4+4].lora_B.data = lora_B[1]
+                adapted_attention.loralist[h*4+3].lora_A.data = lora_A[1]
+                adapted_attention.loralist[h*4+3].lora_B.data = lora_B[1]
                 
             # update the bias in the feedforward network
             # match the bias of the first feedforward layer
@@ -447,6 +446,26 @@ class approx_tfn:
         adapted_m.tfblist[-1].feed_forward[1].bias.data = torch.inverse(updated_output_layer_weight) @ self.target_m.output_layer.weight.data @ self.target_m.tfblist[-1].feed_forward[1].bias.data
                 
         return adapted_m
+    
+    def eval(
+        self,
+        adapted_model, 
+        n_test,
+    ):
+        # generated random input from some Gaussian distribution
+        X_test = torch.randn(n_test, self.embed_dim, self.seq_length)
+        Y_test = self.target_m(X_test).detach()
+        Y_test.requires_grad = False
+        
+        Y_pred = adapted_model(X_test)
+        loss = self.criterion(Y_pred, Y_test)
+        
+        self.test_loss = loss.item()
+        
+        if self.wandb:
+            wandb.log({'test_loss': self.test_loss})
+        else:
+            print(f"Test loss: {self.test_loss:.4f}")
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
