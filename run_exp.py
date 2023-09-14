@@ -367,16 +367,86 @@ class approx_tfn:
     
     def adapt_tfn_ours(
         self,
-        batch_size,
     ):
         set_seed()
         
         adapted_m = deepcopy(self.frozen_m)
         
+        # iterating through each transformer block
+        for l in range(self.depth):
+            adapted_attention = adapted_m.tfblist[l].attention
+            target_attention = self.target_m.tfblist[l].attention
+
+            # iterating through each head
+            for h in range(self.n_head):
+                # consider component: W_K^h.T * W_Q^h
+                # get the target matrix and the frozen matrix
+                # treat  W_Q^h as the first layer, and W_K^h.T as the second layer
+                frozen_kq = [adapted_attention.Wq[h], adapted_attention.Wk[h].T] 
+                if l == 1:
+                    target_kq = target_attention.Wk[h].T @ target_attention.Wq[h]
+                
+                else:
+                    calibrate_ff2 = self.target_m.tfblist[l-1].feed_forward[1].weight.data @ torch.inverse(adapted_m.tfblist[l-1].feed_forward[1].weight.data)
+                    target_kq = calibrate_ff2.T @ target_attention.Wk[h].T @ target_attention.Wq[h] @ calibrate_ff2
+                    
+                lora_A, lora_B = our_construction(target_kq, frozen_kq, self.rank, self.wandb)
+            
+                # update the adapted for W_Q^h
+                adapted_attention.loralist[h*4].lora_A.data = lora_A[0]
+                adapted_attention.loralist[h*4].lora_B.data = lora_B[0]
+                
+                # update the adapted for W_K^h
+                adapted_attention.loralist[h*4+1].lora_A.data = lora_B[1]
+                adapted_attention.loralist[h*4+1].lora_B.data = lora_A[1]
+                
+                # consider component: W_O^h * W_V^h
+                # get the target matrix and the frozen matrix
+                # treat  W_V^h as the first layer, and W_O^h as the second layer
+                frozen_ov = [adapted_attention.Wv[h], adapted_attention.Wo[h]]
+                calibrate_ff1 = torch.inverse(adapted_m.tfblist[l].feed_forward[0].weight.data) @ self.target_m.tfblist[l].feed_forward[0].weight.data
+                if l == 1:
+                    target_ov = calibrate_ff1 @ target_attention.Wo[h] @ target_attention.Wv[h]
+                else:
+                    target_ov = calibrate_ff1 @ target_attention.Wo[h] @ target_attention.Wv[h] @ calibrate_ff2
+                
+                lora_A, lora_B = our_construction(target_ov, frozen_ov, self.rank, self.wandb)
+                
+                # update the adapted for W_V^h
+                adapted_attention.loralist[h*4+3].lora_A.data = lora_A[0]
+                adapted_attention.loralist[h*4+3].lora_B.data = lora_B[0]
+                
+                # update the adapted for W_O^h
+                adapted_attention.loralist[h*4+4].lora_A.data = lora_A[1]
+                adapted_attention.loralist[h*4+4].lora_B.data = lora_B[1]
+                
+            # update the bias in the feedforward network
+            # match the bias of the first feedforward layer
+            adapted_m.tfblist[l].feed_forward[0].bias.data = self.target_m.tfblist[l].feed_forward[0].bias.data
+            # match the bias of the second feedforward layer
+            if l < self.depth - 1:
+                adapted_m.tfblist[l].feed_forward[1].bias.data = adapted_m.tfblist[l].feed_forward[0].weight.data @ torch.inverse(self.target_m.tfblist[l].feed_forward[0].weight.data) @ self.target_m.tfblist[l].feed_forward[1].bias.data 
+
+        # match the output layer
+        # consider the component: W_o W_{2L}
+        target_ol = self.target_m.output_layer.weight.data @ self.target_m.tfblist[-1].feed_forward[1].weight.data
+        frozen_ol = [adapted_m.tfblist[-1].feed_forward[1].weight.data, adapted_m.output_layer.weight.data]
         
-            
-            
-            
+        lora_A, lora_B = our_construction(target_ol, frozen_ol, self.rank, self.wandb)
+        
+        # update the adapted for W_2l
+        adapted_m.tfblist[-1].W2_lora.lora_A.data = lora_A[0]
+        adapted_m.tfblist[-1].W2_lora.lora_B.data = lora_B[0]
+        
+        # update the adapted for W_o
+        adapted_m.output_layer_lora.lora_A.data = lora_A[1]
+        adapted_m.output_layer_lora.lora_B.data = lora_B[1]
+        
+        # update the bias 
+        updated_output_layer_weight = adapted_m.output_layer.weight.data + adapted_m.output_layer_lora.lora_A @ adapted_m.output_layer_lora.lora_B.T
+        adapted_m.tfblist[-1].feed_forward[1].bias.data = torch.inverse(updated_output_layer_weight) @ self.target_m.output_layer.weight.data @ self.target_m.tfblist[-1].feed_forward[1].bias.data
+                
+        return adapted_m
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

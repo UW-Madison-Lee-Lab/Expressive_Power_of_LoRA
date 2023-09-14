@@ -77,7 +77,7 @@ class FNN(nn.Module):
     
 class MultiheadAttention(nn.Module):
     """
-    This class implment the multi-head attention layer defined in the paper
+    This class implment the multi-head self-attention layer defined in the paper
     "The Expressive Power of Low-Rank Adaptation"
     """
     
@@ -114,12 +114,10 @@ class MultiheadAttention(nn.Module):
             self.loralist = nn.ModuleList([LoRA(embed_dim, rank, std) for _ in range(n_head*4)])
             
             
-    def forward(self, q, k, v):
+    def forward(self, x):
         """
         Args:
-            q: (batch_size, embed_dim, seq_length)
-            k: (batch_size, embed_dim, seq_length)
-            v: (batch_size, embed_dim, seq_length)
+            x: (batch_size, embed_dim, seq_length)
             
         Returns:
             (batch_size, embed_dim, seq_length)
@@ -140,7 +138,7 @@ class MultiheadAttention(nn.Module):
             else:
                 Wq, Wk, Wv, Wo = self.Wq[h], self.Wk[h], self.Wv[h], self.Wo[h]
                 
-            attn_score = matmul(Wq, q).T @ matmul(Wk, k)
+            attn_score = matmul(Wk, x).T @ matmul(Wq, x)
             
             # compute the attention weights for each head
             # softmax is applied column-wise
@@ -149,7 +147,7 @@ class MultiheadAttention(nn.Module):
             
             # compute the output for each head
             # attn_output: (batch_size, embed_dim, seq_length)
-            attn_output = matmul(Wv, v) @ attn_weights
+            attn_output = matmul(Wv, x) @ attn_weights
             
             # project the output and combine the results from all heads
             # result: (batch_size, embed_dim, seq_length)
