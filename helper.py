@@ -25,25 +25,6 @@ def generate_diag_matrix(D, r1, r2):
     
     return mat
 
-def matmul(W, x):
-    """
-    Args:
-        W: (m, n)
-        x (batch_size, n, p)
-        
-    Returns:
-        (batch_size, m, p)
-    """
-    
-    # Expand dimensions of W to align with x for batch multiplication
-    W_expanded = W.unsqueeze(0)
-    
-    # Perform batch multiplication
-    result = torch.matmul(W_expanded, x)
-    
-    # Remove singleton dimension if necessary
-    return result.squeeze(0)
-
 def our_construction(target_weight, frozen_weights, rank, log_wandb, atol = 1e-3):
     """
     Our construction of low-rank adapter for matrix approximation

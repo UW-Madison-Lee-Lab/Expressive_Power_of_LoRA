@@ -28,7 +28,7 @@ class LoRA(nn.Module):
         # lora_B: (width, rank)
         # lora_A @ lora_B^T: (width, width)
         # matmul(self.lora_A @ self.lora_B.T, X): (batch_size, width, seq_length)
-        return matmul(self.lora_A @ self.lora_B.T, X)
+        return torch.matmul(self.lora_A @ self.lora_B.T, X)
     
     def forward(self, x):
         # identify the shape of x
@@ -113,7 +113,35 @@ class MultiheadAttention(nn.Module):
             # for each head, we have adapter for Wq, Wk, Wv, Wo
             self.loralist = nn.ModuleList([LoRA(embed_dim, rank, std) for _ in range(n_head*4)])
             
+    def forward_head(self, x, h):
+        if self.apply_lora:
+            Wq = self.Wq[h] + self.loralist[h*4].lora_A @ self.loralist[h*4].lora_B.T
+            Wk = self.Wk[h] + self.loralist[h*4+1].lora_A @ self.loralist[h*4+1].lora_B.T
+            Wv = self.Wv[h] + self.loralist[h*4+2].lora_A @ self.loralist[h*4+2].lora_B.T
+            Wo = self.Wo[h] + self.loralist[h*4+3].lora_A @ self.loralist[h*4+3].lora_B.T
             
+        else:
+            Wq = self.Wq[h]
+            Wk = self.Wk[h]
+            Wv = self.Wv[h]
+            Wo = self.Wo[h]
+            
+        # compute the attention score for each head
+        # attn_score: (batch_size, seq_length, seq_length)
+        attn_score = torch.bmm(torch.matmul(Wk, x).permute(0,2,1), torch.matmul(Wq, x))
+        
+        # compute the attention weights for each head
+        # softmax is applied column-wise
+        # attn_weights: (batch_size, seq_length, seq_length)
+        attn_weights = torch.softmax(attn_score, dim = 1)
+        
+        # compute the output for each head
+        # attn_output: (batch_size, embed_dim, seq_length)
+        attn_output = torch.matmul(Wv, x) @ attn_weights
+        
+        return Wo @ attn_output
+            
+        
     def forward(self, x):
         """
         Args:
@@ -126,36 +154,8 @@ class MultiheadAttention(nn.Module):
         result = torch.zeros_like(x)
         
         # compute the output for each head
-        Wq_, Wk_, Wv_, Wo_ = [], [], [], []
         for h in range(self.n_head):
-            # compute the attention score for each head
-            # attn_score: (batch_size, seq_length, seq_length)
-            if self.apply_lora:
-                Wq_.append(self.Wq[h] + self.loralist[h*4].lora_A @ self.loralist[h*4].lora_B.T)
-                Wk_.append(self.Wk[h] + self.loralist[h*4+1].lora_A @ self.loralist[h*4+1].lora_B.T)
-                Wv_.append(self.Wv[h] + self.loralist[h*4+2].lora_A @ self.loralist[h*4+2].lora_B.T)
-                Wo_.append(self.Wo[h] + self.loralist[h*4+3].lora_A @ self.loralist[h*4+3].lora_B.T)
-                
-            else:
-                Wq_.append(self.Wq[h])
-                Wk_.append(self.Wk[h])
-                Wv_.append(self.Wv[h])
-                Wo_.append(self.Wo[h])
-                
-            self.attn_score = torch.bmm(matmul(Wk_[h], x).permute(0,2,1), matmul(Wq_[h], x))
-            
-            # compute the attention weights for each head
-            # softmax is applied column-wise
-            # attn_weights: (batch_size, seq_length, seq_length)
-            attn_weights = torch.softmax(self.attn_score, dim = 1)
-            
-            # compute the output for each head
-            # attn_output: (batch_size, embed_dim, seq_length)
-            self.attn_output = matmul(Wv_[h], x) @ attn_weights
-            
-            # project the output and combine the results from all heads
-            # result: (batch_size, embed_dim, seq_length)
-            result = result + matmul(Wo_[h], self.attn_output)
+            result = result + self.forward_head(x, h)
         
         # batch_size * embed_dim * seq_length
         return result

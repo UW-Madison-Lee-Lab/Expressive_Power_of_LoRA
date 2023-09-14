@@ -396,10 +396,14 @@ class approx_tfn:
                 adapted_attention.loralist[h*4+1].lora_A.data = lora_B[1]
                 adapted_attention.loralist[h*4+1].lora_B.data = lora_A[1]
                 
-                print(target_kq)
-                print((frozen_kq[1] + lora_B[1] @ lora_A[1].T) @ (frozen_kq[0] + lora_A[0] @ lora_B[0].T))
-                print((frozen_kq[1] + lora_A[1] @ lora_B[1].T) @ (frozen_kq[0] + lora_A[0] @ lora_B[0].T))
-                print((frozen_kq[1] + lora_A[1] @ lora_B[1].T) @ (frozen_kq[0] + lora_A[0] @ lora_B[0].T))
+                Z = torch.randn(self.batch_size, self.embed_dim, self.seq_length)
+                # print(target_kq)
+                # print((adapted_attention.Wk[h] + adapted_attention.loralist[h*4+1].lora_A @ adapted_attention.loralist[h*4+1].lora_B.T).T @ (adapted_attention.Wq[h] + adapted_attention.loralist[h*4].lora_A @ adapted_attention.loralist[h*4].lora_B.T))
+                # print(adapted_attention.Wk[h] + adapted_attention.loralist[h*4+1].lora_A @ adapted_attention.loralist[h*4+1].lora_B.T)
+                # target_attention(Z)
+                # adapted_attention(Z)
+                # print(target_attention.attn_score)
+                # print(adapted_attention.attn_score)
                 
                 # consider component: W_O^h * W_V^h
                 # get the target matrix and the frozen matrix
@@ -421,14 +425,6 @@ class approx_tfn:
                 adapted_attention.loralist[h*4+3].lora_A.data = lora_A[1]
                 adapted_attention.loralist[h*4+3].lora_B.data = lora_B[1]
                 
-                Z = torch.randn(self.batch_size, self.embed_dim, self.seq_length)
-                print(target_attention(Z))
-                print(adapted_attention(Z))
-                print(target_attention.attn_score)
-                print(adapted_attention.attn_score)
-                
-                print(target_attention.attn_output)
-                print(adapted_attention.attn_output)
                 break
                 
             # update the bias in the feedforward network
