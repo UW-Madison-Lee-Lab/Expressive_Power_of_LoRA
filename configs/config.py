@@ -187,14 +187,18 @@ if os.path.exists('fnn_configs.csv'):
     
     while 1:
         # Ask the user if they want to overwrite the original configs
-        user_input = input("Do you want to overwrite the original confis? (y/n): ")
+        user_input = input("Do you want to overwrite the original fnn confis? (y/n): ")
         if user_input.lower() in ['y', 'yes']:
+            new_fnn_configs.to_csv('fnn_configs.csv', index=False, header=False)
+            print('Data overwritten!')
             break
         elif user_input.lower() in ['n', 'no']:
-            print('Exit!')
-            exit()
+            print('Sure!')
+            break
         else:
             print("Invalid input!")
+else:
+    new_fnn_configs.to_csv('fnn_configs.csv', index=False, header=False)
     
 if os.path.exists('tfn_configs.csv'):
     origin_tfn_configs = pd.read_csv('tfn_configs.csv', header=None)
@@ -205,16 +209,16 @@ if os.path.exists('tfn_configs.csv'):
     
     while 1:
         # Ask the user if they want to overwrite the original configs
-        user_input = input("Do you want to overwrite the original confis? (y/n): ")
+        user_input = input("Do you want to overwrite the original tfn confis? (y/n): ")
         if user_input.lower() in ['y', 'yes']:
+            new_tfn_configs.to_csv('tfn_configs.csv', index=False, header=False)
+            print('Data overwritten!')
             break
         elif user_input.lower() in ['n', 'no']:
-            print('Exit!')
-            exit()
+            print('Sure!')
+            break
         else:
             print("Invalid input!")
-
-            
-new_fnn_configs.to_csv('fnn_configs.csv', index=False, header=False)
-new_tfn_configs.to_csv('tfn_configs.csv', index=False, header=False)
+else:    
+    new_tfn_configs.to_csv('tfn_configs.csv', index=False, header=False)
 
