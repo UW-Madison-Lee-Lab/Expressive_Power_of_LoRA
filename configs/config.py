@@ -122,3 +122,58 @@ for init_mode in ['default', 'uniform_singular_values']:
                     configs.append(config)
                     
 pd.DataFrame(configs).to_csv('fnn_configs.csv', index=False, header=False)
+
+# tfn
+exp = 'tfn'
+n_head = 2
+seq_len = 10
+wandb = 1
+n_test = 5000
+std = .25
+batch_size = 256
+n_epochs = 5000
+configs = []
+
+for embed_dim in [4, 8]:
+    for depth in [1, 2, 4]:
+        for rank in range(1, width//2 + 1):
+            # sgd
+            method = 'sgd'
+            for lr in [1e-2, 1e-3, 1e-4]:
+                for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
+                    config = (
+                        embed_dim,
+                        n_head, 
+                        depth,
+                        rank,
+                        batch_size,
+                        seq_len,
+                        method,
+                        n_epochs,
+                        lr,
+                        weight_decay,
+                        wandb,
+                        std,
+                        n_test,
+                    )
+                    configs.append(config)
+            # ours
+            method = 'ours'
+            config = (
+                embed_dim,
+                n_head, 
+                depth,
+                rank,
+                batch_size,
+                seq_len,
+                method,
+                n_epochs,
+                lr,
+                weight_decay,
+                wandb,
+                std,
+                n_test,
+                    )
+            configs.append(config)
+            
+pd.DataFrame(configs).to_csv('tfn_configs.csv', index=False, header=False)

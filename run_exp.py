@@ -252,8 +252,13 @@ class approx_tfn:
         rank,
         batch_size,
         seq_length,
+        method, 
+        n_epochs,
+        lr,
+        weight_decay,
         log_wandb = 0,
-        std = .25
+        std = .25,
+        n_test = 10000,
     ):
         set_seed()
         
@@ -268,6 +273,23 @@ class approx_tfn:
         self.init_models(std)
         
         self.criterion = nn.MSELoss()
+        
+        # perform finetune
+        if method == 'ours':
+            adapted_m = self.adapt_ours()
+        elif method == 'sgd':
+            adapted_m = self.adapt_sgd(
+                n_epochs,
+                batch_size,
+                lr,
+                weight_decay,
+            )
+        else:
+            raise NotImplementedError(f"We only support ours and sgd for parameter method, and {method} is not supported.")
+        
+        # evaluate the adapted model
+        self.eval(adapted_m, n_test = n_test)
+            
         
     def init_models(
         self,
@@ -560,6 +582,8 @@ if __name__ == '__main__':
     elif args.exp == 'tfn':
         if (args.target_depth != args.frozen_depth) and (args.method == 'ours'):
             raise NotImplementedError(f"our method only support the case where the target depth is equal to the frozen depth for TFN. Please try sgd instead.")
+        if args.init_mode == 'uniform_singular_values':
+            raise NotImplementedError(f"uniform_singular_values is not supported for TFN. Please try default instead.")
             
         approx_tfn(
             embed_dim = args.width,
@@ -568,8 +592,13 @@ if __name__ == '__main__':
             rank = args.rank,
             batch_size = args.batch_size,
             seq_length = args.seq_length,
+            method = args.method,
+            n_epochs = args.n_epochs,
+            lr = args.lr,
+            weight_decay = args.weight_decay,
             log_wandb = args.wandb,
             std = args.std,
+            n_test = args.n_test,
         )
 
     if args.wandb:
