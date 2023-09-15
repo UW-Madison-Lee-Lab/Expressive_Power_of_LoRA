@@ -68,6 +68,7 @@ class approx_fnn:
             apply_lora = False,
             activation = activation,
         )
+        self.target_m.eval()
         
         # randomly initialize the frozen model
         self.frozen_m = FNN(
@@ -79,6 +80,7 @@ class approx_fnn:
             apply_lora = True,
             activation = activation,
         )
+        self.frozen_m.eval()
         
         if init_mode == 'uniform_singular_values':
             tdl = self.frozen_depth // self.target_depth
@@ -106,6 +108,7 @@ class approx_fnn:
         set_seed()
         
         adapted_m = deepcopy(self.frozen_m)
+        adapted_m.train()
         
         # specify the lora adapter as the parameters to be optimized
         params = []
@@ -161,6 +164,7 @@ class approx_fnn:
         
         tdl = self.frozen_depth // self.target_depth
         adapted_m = deepcopy(self.frozen_m)
+        adapted_m.train()
         
         if self.use_bias:
             # generate random input from some Gaussian distribution
@@ -280,6 +284,7 @@ class approx_tfn:
             std = std,
             apply_lora = False,
         )
+        self.target_m.eval()
         
         self.frozen_m = TFN(
             embed_dim = self.embed_dim,
@@ -289,6 +294,7 @@ class approx_tfn:
             std = std,
             apply_lora = True,
         )
+        self.frozen_m.eval()
         
     def adapt_sgd(
         self,
@@ -300,6 +306,7 @@ class approx_tfn:
         set_seed()
         
         adapted_m = deepcopy(self.frozen_m)
+        adapted_m.train()
         
         # specify the lora adapter as the parameters to be optimized
         params = []
@@ -367,9 +374,17 @@ class approx_tfn:
         set_seed()
         
         adapted_m = deepcopy(self.frozen_m)
+        adapted_m.train()
+        
+        iter_obj = tqdm(range(self.depth))
+        
+        ######################### DEBUG ONLY #########################  
+        # x = torch.randn(self.batch_size, self.embed_dim, self.seq_length)
+        # target_x, adapted_x = x, x
+        ################################################################
         
         # iterating through each transformer block
-        for l in range(self.depth):
+        for l in iter_obj:
             adapted_attention = adapted_m.tfblist[l].attention
             target_attention = self.target_m.tfblist[l].attention
 
@@ -378,13 +393,13 @@ class approx_tfn:
                 # consider component: W_K^h.T * W_Q^h
                 # get the target matrix and the frozen matrix
                 # treat  W_Q^h as the first layer, and W_K^h.T as the second layer
-                frozen_kq = [adapted_attention.Wq[h], adapted_attention.Wk[h].T] 
-                if l == 1:
-                    target_kq = target_attention.Wk[h].T @ target_attention.Wq[h]
+                frozen_kq = [adapted_attention.Wq[h].data, adapted_attention.Wk[h].data.T] 
+                if l == 0:
+                    target_kq = target_attention.Wk[h].data.T @ target_attention.Wq[h].data
                 
                 else:
                     calibrate_ff2 = self.target_m.tfblist[l-1].feed_forward[1].weight.data @ torch.inverse(adapted_m.tfblist[l-1].feed_forward[1].weight.data)
-                    target_kq = calibrate_ff2.T @ target_attention.Wk[h].T @ target_attention.Wq[h] @ calibrate_ff2
+                    target_kq = calibrate_ff2.T @ target_attention.Wk[h].data.T @ target_attention.Wq[h].data @ calibrate_ff2
                     
                 lora_A, lora_B = our_construction(target_kq, frozen_kq, self.rank, self.wandb)
             
@@ -396,24 +411,15 @@ class approx_tfn:
                 adapted_attention.loralist[h*4+1].lora_A.data = lora_B[1]
                 adapted_attention.loralist[h*4+1].lora_B.data = lora_A[1]
                 
-                Z = torch.randn(self.batch_size, self.embed_dim, self.seq_length)
-                # print(target_kq)
-                # print((adapted_attention.Wk[h] + adapted_attention.loralist[h*4+1].lora_A @ adapted_attention.loralist[h*4+1].lora_B.T).T @ (adapted_attention.Wq[h] + adapted_attention.loralist[h*4].lora_A @ adapted_attention.loralist[h*4].lora_B.T))
-                # print(adapted_attention.Wk[h] + adapted_attention.loralist[h*4+1].lora_A @ adapted_attention.loralist[h*4+1].lora_B.T)
-                # target_attention(Z)
-                # adapted_attention(Z)
-                # print(target_attention.attn_score)
-                # print(adapted_attention.attn_score)
-                
                 # consider component: W_O^h * W_V^h
                 # get the target matrix and the frozen matrix
                 # treat  W_V^h as the first layer, and W_O^h as the second layer
-                frozen_ov = [adapted_attention.Wv[h], adapted_attention.Wo[h]]
+                frozen_ov = [adapted_attention.Wv[h].data, adapted_attention.Wo[h].data]
                 calibrate_ff1 = torch.inverse(adapted_m.tfblist[l].feed_forward[0].weight.data) @ self.target_m.tfblist[l].feed_forward[0].weight.data
-                if l == 1:
-                    target_ov = calibrate_ff1 @ target_attention.Wo[h] @ target_attention.Wv[h]
+                if l == 0:
+                    target_ov = calibrate_ff1 @ target_attention.Wo[h].data @ target_attention.Wv[h].data
                 else:
-                    target_ov = calibrate_ff1 @ target_attention.Wo[h] @ target_attention.Wv[h] @ calibrate_ff2
+                    target_ov = calibrate_ff1 @ target_attention.Wo[h].data @ target_attention.Wv[h].data @ calibrate_ff2
                 
                 lora_A, lora_B = our_construction(target_ov, frozen_ov, self.rank, self.wandb)
                 
@@ -425,34 +431,51 @@ class approx_tfn:
                 adapted_attention.loralist[h*4+3].lora_A.data = lora_A[1]
                 adapted_attention.loralist[h*4+3].lora_B.data = lora_B[1]
                 
-                break
-                
             # update the bias in the feedforward network
             # match the bias of the first feedforward layer
             adapted_m.tfblist[l].feed_forward[0].bias.data = self.target_m.tfblist[l].feed_forward[0].bias.data
             # match the bias of the second feedforward layer
             if l < self.depth - 1:
-                adapted_m.tfblist[l].feed_forward[1].bias.data = adapted_m.tfblist[l].feed_forward[0].weight.data @ torch.inverse(self.target_m.tfblist[l].feed_forward[0].weight.data) @ self.target_m.tfblist[l].feed_forward[1].bias.data 
+                adapted_m.tfblist[l].feed_forward[1].bias.data = adapted_m.tfblist[l].feed_forward[1].weight.data @ torch.inverse(self.target_m.tfblist[l].feed_forward[1].weight.data) @ self.target_m.tfblist[l].feed_forward[1].bias.data      
 
-        # match the output layer
-        # consider the component: W_o W_{2L}
-        target_ol = self.target_m.output_layer.weight.data @ self.target_m.tfblist[-1].feed_forward[1].weight.data
-        frozen_ol = [adapted_m.tfblist[-1].feed_forward[1].weight.data, adapted_m.output_layer.weight.data]
-        
-        lora_A, lora_B = our_construction(target_ol, frozen_ol, self.rank, self.wandb)
-        
-        # update the adapted for W_2l
-        adapted_m.tfblist[-1].W2_lora.lora_A.data = lora_A[0]
-        adapted_m.tfblist[-1].W2_lora.lora_B.data = lora_B[0]
-        
-        # update the adapted for W_o
-        adapted_m.output_layer_lora.lora_A.data = lora_A[1]
-        adapted_m.output_layer_lora.lora_B.data = lora_B[1]
-        
-        # update the bias 
-        updated_output_layer_weight = adapted_m.output_layer.weight.data + adapted_m.output_layer_lora.lora_A @ adapted_m.output_layer_lora.lora_B.T
-        adapted_m.tfblist[-1].feed_forward[1].bias.data = torch.inverse(updated_output_layer_weight) @ self.target_m.output_layer.weight.data @ self.target_m.tfblist[-1].feed_forward[1].bias.data
+            else:
+                # match the output layer
+                # consider the component: W_o W_{2L}
+                target_ol = self.target_m.output_layer.weight.data @ self.target_m.tfblist[l].feed_forward[1].weight.data
+                frozen_ol = [adapted_m.tfblist[-1].feed_forward[1].weight.data, adapted_m.output_layer.weight.data]
                 
+                lora_A, lora_B = our_construction(target_ol, frozen_ol, self.rank, self.wandb)
+                
+                # update the adapted W_2l
+                adapted_m.tfblist[l].W2_lora.lora_A.data = lora_A[0]
+                adapted_m.tfblist[l].W2_lora.lora_B.data = lora_B[0]
+                
+                # update the adapted W_o
+                adapted_m.output_layer_lora.lora_A.data = lora_A[1]
+                adapted_m.output_layer_lora.lora_B.data = lora_B[1]
+                
+                # update the bias 
+                updated_output_layer_weight = adapted_m.output_layer.weight.data + adapted_m.output_layer_lora.lora_A.data @ adapted_m.output_layer_lora.lora_B.data.T
+                adapted_m.tfblist[l].feed_forward[1].bias.data = torch.inverse(updated_output_layer_weight) @ self.target_m.output_layer.weight.data @ self.target_m.tfblist[l].feed_forward[1].bias.data
+                
+            ######################### DEBUG ONLY ######################### 
+            # compute the difference between the intermediate ouput H_l of the target model and the adapted model
+            # target_h = self.target_m.tfblist[l].forward_ff1(target_x)
+            # adapted_h = adapted_m.tfblist[l].forward_ff1(adapted_x)
+            # self.train_loss = torch.mean(torch.norm(target_h - adapted_h, dim = 1)).item()
+            # iter_obj.set_description(f"Loss of Ours: {self.train_loss:.4f}")
+            # print(self.train_loss)
+            
+            # target_x = self.target_m.tfblist[l].forward_ff2(target_x)
+            # adapted_x = adapted_m.tfblist[l].forward_ff2(adapted_x)
+            # if l < self.depth - 1:
+            #     print(torch.mean(torch.norm(target_x - self.target_m.tfblist[l].feed_forward[1].weight.data @ torch.inverse(adapted_m.tfblist[l].feed_forward[1].weight.data) @ adapted_x, dim = 1)).item())
+            # else:
+            #     target_x = self.target_m.output_layer.weight.data @ target_x
+            #     adapted_x = adapted_m.output_layer.weight.data @ adapted_x
+            #     print(torch.mean(torch.norm(target_x - adapted_x, dim = 1)).item())
+            ################################################################
+        
         return adapted_m
     
     def eval(

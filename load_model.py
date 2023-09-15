@@ -184,8 +184,8 @@ class TFB(nn.Module):
             apply_lora,
         )
         self.feed_forward = nn.ModuleList([
-            nn.Linear(embed_dim, embed_dim, bias = True),
-            nn.Linear(embed_dim, embed_dim, bias = True),
+            nn.Linear(embed_dim, embed_dim),
+            nn.Linear(embed_dim, embed_dim),
         ])
         
         self.apply_lora = apply_lora
@@ -194,23 +194,20 @@ class TFB(nn.Module):
         if self.apply_lora and self.is_last:
             # we add lora adapter for the second feed-forward layer if it is the last block
             self.W2_lora = LoRA(embed_dim, rank, std)
-        
-    def forward(self, x):
-        """_summary_
+            
+    def forward_ff1(self, x):
+        """Get the output of the first feedforward layer
 
         Args:
             x: (batch_size, embed_dim, seq_length)
 
         Returns:
-            f2_output: (batch_size, embed_dim, seq_length)
+            f1_output: (batch_size, embed_dim, seq_length)
         """
-        
         batch_size, seq_length = x.shape[0], x.shape[2]
         
         # multi-head attention: (batch_size, embed_dim, seq_length)
         attn_output = self.attention(x)
-        
-        # feed-forward network
         
         # apply the first feedforward layer
         # 1. reshape attn_output to (batch_size * seq_length, embed_dim)
@@ -221,6 +218,22 @@ class TFB(nn.Module):
         f1_output = f1_output_reshaped.reshape(batch_size, seq_length, self.embed_dim).permute(0, 2, 1)
         # 4. apply relu
         f1_output = torch.relu(f1_output)
+        
+        return f1_output
+    
+    def forward_ff2(self, x):
+        """Get the output of the second feedforward layer
+
+        Args:
+            f1_output: (batch_size, embed_dim, seq_length)
+
+        Returns:
+            f2_output: (batch_size, embed_dim, seq_length)
+        """
+        batch_size, seq_length = x.shape[0], x.shape[2]
+        
+        # get the output of the first feedforward layer
+        f1_output = self.forward_ff1(x)
         
         # apply the second feedforward layer
         # 1. reshape f1_output to (batch_size * seq_length, embed_dim)
@@ -233,8 +246,20 @@ class TFB(nn.Module):
         if self.apply_lora and self.is_last:
             # f2_output: (batch_size, embed_dim, seq_length)
             f2_output = f2_output + self.W2_lora(f1_output)
-        
+            
         return f2_output
+        
+    def forward(self, x):
+        """_summary_
+
+        Args:
+            x: (batch_size, embed_dim, seq_length)
+
+        Returns:
+            f2_output: (batch_size, embed_dim, seq_length)
+        """
+        
+        return self.forward_ff2(x)
     
 class TFN(nn.Module):
     def __init__(
@@ -295,10 +320,10 @@ class TFN(nn.Module):
         # 1. reshape x to (batch_size * seq_length, embed_dim)
         x_reshaped = x.permute(0, 2, 1).reshape(-1, self.embed_dim)
         # 2. apply the output layer -> (batch_size * seq_length, embed_dim)
-        x_reshaped = self.output_layer(x_reshaped) 
+        output_reshaped = self.output_layer(x_reshaped) 
         # 3. permute it back to (batch_size, embed_dim, seq_length)
-        x = x_reshaped.reshape(batch_size, seq_length, self.embed_dim).permute(0, 2, 1)
+        output = output_reshaped.reshape(batch_size, seq_length, self.embed_dim).permute(0, 2, 1)
         if self.apply_lora:
-            x = x + self.output_layer_lora(x)
+            output = output + self.output_layer_lora(x)
             
-        return x
+        return output
