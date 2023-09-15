@@ -173,6 +173,7 @@ for embed_dim in [4, 8]:
                 wandb,
                 std,
                 n_test,
+                exp,
             )
             tfn_configs.append(config)
 
