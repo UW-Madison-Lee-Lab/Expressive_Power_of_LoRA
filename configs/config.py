@@ -133,7 +133,7 @@ batch_size = 256
 n_epochs = 5000
 tfn_configs = []
 
-for embed_dim in [4, 8]:
+for embed_dim in [4, 8, 16]:
     for depth in [1, 2, 4]:
         for rank in range(1, min(width//2 + int(width % 2 != 0) + 1, width + 1)):
             # sgd
