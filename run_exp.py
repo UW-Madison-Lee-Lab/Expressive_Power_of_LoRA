@@ -252,7 +252,6 @@ class approx_tfn:
         rank,
         batch_size,
         seq_length,
-        init_mode = 'default',
         log_wandb = 0,
         std = .25
     ):
@@ -266,14 +265,13 @@ class approx_tfn:
         self.seq_length = seq_length
         self.wandb = log_wandb
         
-        self.init_models(std, init_mode)
+        self.init_models(std)
         
         self.criterion = nn.MSELoss()
         
     def init_models(
         self,
         std,
-        init_mode,
     ):
         # randomly initialize the target model
         self.target_m = TFN(
@@ -514,6 +512,9 @@ if __name__ == '__main__':
     parser.add_argument('--n_test', type=int, default=10000)
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--init_mode', type=str, default='default', choices = ['default', 'uniform_singular_values'])
+    
+    parser.add_argument('--n_head', type=int, default=2)
+    parser.add_argument('--seq_length', type=int, default=10)
 
     parser.add_argument('--exp', type=str, default='fnn', choices = ['fnn', 'tfn'])
     parser.add_argument('--wandb', type=int, default=0, choices = [0,1])
@@ -557,7 +558,19 @@ if __name__ == '__main__':
         )
 
     elif args.exp == 'tfn':
-        pass
+        if (args.target_depth != args.frozen_depth) and (args.method == 'ours'):
+            raise NotImplementedError(f"our method only support the case where the target depth is equal to the frozen depth for TFN. Please try sgd instead.")
+            
+        approx_tfn(
+            embed_dim = args.width,
+            n_head = args.n_head,
+            depth = args.target_depth,
+            rank = args.rank,
+            batch_size = args.batch_size,
+            seq_length = args.seq_length,
+            log_wandb = args.wandb,
+            std = args.std,
+        )
 
     if args.wandb:
         wandb.finish()
