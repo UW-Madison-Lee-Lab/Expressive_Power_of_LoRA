@@ -131,7 +131,6 @@ n_test = 5000
 std = .25
 batch_size = 256
 n_epochs = 5000
-width = 8
 tfn_configs = []
 
 for embed_dim in [4, 8]:
@@ -155,6 +154,7 @@ for embed_dim in [4, 8]:
                         wandb,
                         std,
                         n_test,
+                        exp,
                     )
                     tfn_configs.append(config)
             # ours
