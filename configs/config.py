@@ -20,7 +20,7 @@ for init_mode in ['default', 'uniform_singular_values']:
     
     for width in [4, 8, 16]:
         for frozen_depth in [2, 4, 8]:
-            for rank in range(1, width//frozen_depth + int(width % frozen_depth > 0) + 1 ):
+            for rank in range(1, min(width//frozen_depth + int(width % frozen_depth > 0) + 1, width + 1 )):
                 # sgd
                 method = 'sgd'
                 for lr in [1e-2, 1e-3, 1e-4]:
@@ -75,7 +75,7 @@ for init_mode in ['default', 'uniform_singular_values']:
             frozen_depth_list = np.array([2, 4, 8]) * target_depth
             for frozen_depth in frozen_depth_list:
                 tdl = frozen_depth // target_depth
-                for rank in range(1, width//tdl + int(width % tdl > 0) + 1):
+                for rank in range(1, min(width//tdl + int(width % tdl > 0) + 1, width + 1)):
                     # sgd
                     method = 'sgd'
                     for lr in [1e-2, 1e-3, 1e-4]:
@@ -131,11 +131,12 @@ n_test = 5000
 std = .25
 batch_size = 256
 n_epochs = 5000
+width = 8
 tfn_configs = []
 
 for embed_dim in [4, 8]:
     for depth in [1, 2, 4]:
-        for rank in range(1, width//2 + int(width % 2 != 0) + 1):
+        for rank in range(1, min(width//2 + int(width % 2 != 0) + 1, width + 1)):
             # sgd
             method = 'sgd'
             for lr in [1e-2, 1e-3, 1e-4]:
