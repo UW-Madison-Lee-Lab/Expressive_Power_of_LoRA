@@ -243,6 +243,7 @@ class approx_fnn:
         else:
             print(f"Test loss: {self.test_loss:.4f}")
             
+            
 class approx_tfn:
     def __init__(
         self,
