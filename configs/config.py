@@ -10,6 +10,8 @@ n_epochs = 5000
 width = 16
 
 fnn_configs = []
+# when the original code was updated, we want to rerun the experiments for the following update_configs
+update_fnn_configs = []
 
 # fnn
 exp = 'fnn'
@@ -45,6 +47,7 @@ for init_mode in ['default', 'uniform_singular_values']:
                         wandb,
                     )
                     fnn_configs.append(config)
+                    
             # ours
             method = 'ours'
             config = (
@@ -99,6 +102,7 @@ for init_mode in ['default', 'uniform_singular_values']:
                             wandb,
                         )
                         fnn_configs.append(config)
+                        update_fnn_configs.append(config)
             
                 # ours
                 method = 'ours'
@@ -131,8 +135,11 @@ n_test = 5000
 std = .25
 batch_size = 256
 n_epochs = 5000
-tfn_configs = []
 embed_dim = 16
+
+tfn_configs = []
+# when the original code was updated, we want to rerun the experiments for the following update_configs
+update_tfn_configs = []
 
 for depth in [1, 2, 4]:
     for rank in range(1, width + 1):
@@ -157,6 +164,8 @@ for depth in [1, 2, 4]:
                     exp,
                 )
                 tfn_configs.append(config)
+                update_tfn_configs.append(config)
+                
         # ours
         method = 'ours'
         config = (
@@ -179,6 +188,11 @@ for depth in [1, 2, 4]:
 
 new_fnn_configs = pd.DataFrame(fnn_configs)
 new_tfn_configs = pd.DataFrame(tfn_configs)
+
+update_fnn_configs = pd.DataFrame(update_fnn_configs)
+update_tfn_configs = pd.DataFrame(update_tfn_configs)
+update_fnn_configs.to_csv('update_fnn_configs.csv', index=False, header=False)
+update_tfn_configs.to_csv('update_tfn_configs.csv', index=False, header=False)
 
 if os.path.exists('fnn_configs.csv'):
     origin_fnn_configs = pd.read_csv('fnn_configs.csv', header=None)
