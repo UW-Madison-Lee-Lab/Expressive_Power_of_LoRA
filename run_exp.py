@@ -116,6 +116,9 @@ class approx_fnn:
             params.append({'params': adapted_m.loralist[l].lora_A, 'lr': lr, 'weight_decay': weight_decay})
             params.append({'params': adapted_m.loralist[l].lora_B, 'lr': lr, 'weight_decay': weight_decay})
             
+            if self.use_bias:
+                params.append({'params': adapted_m.linearlist[l].bias, 'lr': lr, 'weight_decay': weight_decay})
+            
         opt = optim.Adam(params)
             
         # Initialize tqdm

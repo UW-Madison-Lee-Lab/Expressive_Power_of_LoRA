@@ -30,7 +30,6 @@ figures/
 **/models
 **/wandb_sweep
 **/log_ccc
-**/results
 **/trials
 **/figures
 **/submit
