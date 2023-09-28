@@ -167,10 +167,10 @@ class approx_fnn:
         y_val.requires_grad = False
         
         y_pred = pretrained_m(x_val)
-        self.val_loss = self.criterion(y_pred, y_val)
+        val_loss = self.criterion(y_pred, y_val)
         
         if self.wandb:
-            wandb.log({'pretrain_val_loss': self.val_loss.item()})
+            wandb.log({'pretrain_val_loss': val_loss.item()})
             
         self.frozen_m = pretrained_m
         self.frozen_m.eval()
@@ -340,6 +340,10 @@ class approx_tfn:
         log_wandb = 0,
         std = .25,
         n_test = 10000,
+        pretrained = 0,
+        pretrained_epochs = 1000,
+        pretrained_lr = 1e-3,
+        pretrained_level = 3,
     ):
         set_seed()
         
@@ -354,6 +358,13 @@ class approx_tfn:
         self.init_models(std)
         
         self.criterion = nn.MSELoss()
+        if pretrained:
+            self.pretrained(
+                pretrained_epochs,
+                batch_size,
+                pretrained_lr,
+                pretrained_level,
+            )
         
         # perform finetune
         if method == 'ours':
@@ -396,6 +407,87 @@ class approx_tfn:
             apply_lora = True,
         )
         self.frozen_m.eval()
+        
+    def pretrained(
+        self,
+        n_epochs,
+        batch_size,
+        lr,
+        pretrained_level = 3,
+    ):
+        set_seed()
+        
+        print('Pretraining...')
+        pretrained_m = deepcopy(self.frozen_m)
+        pretrained_m.train()
+        
+        # update all the parameters
+        params = []
+        for l in range(self.depth):
+            attention = pretrained_m.tfblist[l].attention
+            
+            # update the parameters in the attention layer
+            for h in range(self.n_head):
+                params.append({'params': attention.Wq[h], 'lr': lr, 'weight_decay': 0})
+                params.append({'params': attention.Wk[h], 'lr': lr, 'weight_decay': 0})
+                params.append({'params': attention.Wv[h], 'lr': lr, 'weight_decay': 0})
+                params.append({'params': attention.Wo[h], 'lr': lr, 'weight_decay': 0})
+                
+            # update the parameters in the feedforward layer
+            params.append({'params': pretrained_m.tfblist[l].feed_forward[0].weight, 'lr': lr, 'weight_decay': 0})
+            params.append({'params': pretrained_m.tfblist[l].feed_forward[0].bias, 'lr': lr, 'weight_decay': 0})
+            params.append({'params': pretrained_m.tfblist[l].feed_forward[1].weight, 'lr': lr, 'weight_decay': 0})
+            params.append({'params': pretrained_m.tfblist[l].feed_forward[1].bias, 'lr': lr, 'weight_decay': 0})
+            
+        # update the parameters in the output layer
+        params.append({'params': pretrained_m.output_layer.weight, 'lr': lr, 'weight_decay': 0})
+        
+        opt = optim.Adam(params)
+        
+        # Initialize tqdm
+        iter_obj = tqdm(range(n_epochs))
+        # training
+        for i in iter_obj:
+            # generate random input from some Gaussian distribution
+            X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
+            Y_train = self.target_m(X_train).detach()
+            Y_train.requires_grad = False
+            
+            Y_pred = pretrained_m(X_train)
+            train_loss = self.criterion(Y_pred, Y_train)
+            
+            if i == 0:
+                init_loss = train_loss.item()
+            else:
+                if train_loss.item() < init_loss / pretrained_level:
+                    print(f"Pretraining finished at epoch {i}.")
+                    break
+                
+            if self.wandb:
+                wandb.log({'pretrain_train_loss': train_loss.item()})
+                
+            opt.zero_grad()
+            train_loss.backward()
+            opt.step()
+            
+            # update tqdm description with current loss
+            iter_obj.set_description(f"Loss of SGD: {train_loss.item():.4f}")
+            
+        # validation
+        pretrained_m.eval()
+        X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
+        Y_val = self.target_m(X_val).detach()
+        Y_val.requires_grad = False
+        
+        Y_pred = pretrained_m(X_val)
+        val_loss = self.criterion(Y_pred, Y_val)
+        
+        if self.wandb:
+            wandb.log({'pretrain_val_loss': val_loss.item()})
+            
+        self.frozen_m = pretrained_m
+        self.frozen_m.eval()
+            
         
     def adapt_sgd(
         self,
@@ -688,6 +780,10 @@ if __name__ == '__main__':
             log_wandb = args.wandb,
             std = args.std,
             n_test = args.n_test,
+            pretrained = args.pretrained,
+            pretrained_epochs = args.pretrained_epochs,
+            pretrained_lr = args.pretrained_lr,
+            pretrained_level = args.pretrained_level,
         )
 
     if args.wandb:
