@@ -9,6 +9,10 @@ batch_size = 256
 n_epochs = 5000
 width = 16
 
+pretrained_epochs = 1000
+pretrained_lr = 1e-3
+pretrained_level = 3
+
 fnn_configs = []
 # when the original code was updated, we want to rerun the experiments for the following update_configs
 update_fnn_configs = []
@@ -21,63 +25,8 @@ for init_mode in ['default', 'uniform_singular_values']:
     use_bias = 0
     activation = 'linear'
     
-
-    for frozen_depth in [2, 4, 8]:
-        for rank in range(1, width + 1):
-            # sgd
-            method = 'sgd'
-            for lr in [1e-2, 1e-3, 1e-4]:
-                for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
-                    config = (
-                        width, 
-                        target_depth, 
-                        frozen_depth, 
-                        rank, 
-                        use_bias,
-                        activation, 
-                        std, 
-                        method, 
-                        batch_size, 
-                        n_epochs,
-                        lr,
-                        n_test,
-                        weight_decay,
-                        init_mode, 
-                        exp,
-                        wandb,
-                    )
-                    fnn_configs.append(config)
-                    
-            # ours
-            method = 'ours'
-            config = (
-                width, 
-                target_depth, 
-                frozen_depth, 
-                rank, 
-                use_bias,
-                activation, 
-                std, 
-                method, 
-                batch_size, 
-                n_epochs,
-                lr,
-                n_test,
-                weight_decay,
-                init_mode, 
-                exp,
-                wandb,
-            )
-            fnn_configs.append(config)
-                
-    #fnn approximation
-    use_bias = 1
-    activation = 'relu'
-    
-    for target_depth in [1, 2, 4]:
-        frozen_depth_list = np.array([2, 4, 8]) * target_depth
-        for frozen_depth in frozen_depth_list:
-            tdl = frozen_depth // target_depth
+    for pretrained in [0, 1]:
+        for frozen_depth in [2, 4, 8]:
             for rank in range(1, width + 1):
                 # sgd
                 method = 'sgd'
@@ -100,10 +49,13 @@ for init_mode in ['default', 'uniform_singular_values']:
                             init_mode, 
                             exp,
                             wandb,
+                            pretrained,
+                            pretrained_epochs,
+                            pretrained_lr,
+                            pretrained_level,
                         )
                         fnn_configs.append(config)
-                        update_fnn_configs.append(config)
-            
+                        
                 # ours
                 method = 'ours'
                 config = (
@@ -123,8 +75,76 @@ for init_mode in ['default', 'uniform_singular_values']:
                     init_mode, 
                     exp,
                     wandb,
+                    pretrained,
+                    pretrained_epochs,
+                    pretrained_lr,
+                    pretrained_level,
                 )
                 fnn_configs.append(config)
+                
+    #fnn approximation
+    use_bias = 1
+    activation = 'relu'
+    
+    for pretrained in [0, 1]:
+        for target_depth in [1, 2, 4]:
+            frozen_depth_list = np.array([2, 4, 8]) * target_depth
+            for frozen_depth in frozen_depth_list:
+                tdl = frozen_depth // target_depth
+                for rank in range(1, width + 1):
+                    # sgd
+                    method = 'sgd'
+                    for lr in [1e-2, 1e-3, 1e-4]:
+                        for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
+                            config = (
+                                width, 
+                                target_depth, 
+                                frozen_depth, 
+                                rank, 
+                                use_bias,
+                                activation, 
+                                std, 
+                                method, 
+                                batch_size, 
+                                n_epochs,
+                                lr,
+                                n_test,
+                                weight_decay,
+                                init_mode, 
+                                exp,
+                                wandb,
+                                pretrained,
+                                pretrained_epochs,
+                                pretrained_lr,
+                                pretrained_level,
+                            )
+                            fnn_configs.append(config)
+                
+                    # ours
+                    method = 'ours'
+                    config = (
+                        width, 
+                        target_depth, 
+                        frozen_depth, 
+                        rank, 
+                        use_bias,
+                        activation, 
+                        std, 
+                        method, 
+                        batch_size, 
+                        n_epochs,
+                        lr,
+                        n_test,
+                        weight_decay,
+                        init_mode, 
+                        exp,
+                        wandb,
+                        pretrained,
+                        pretrained_epochs,
+                        pretrained_lr,
+                        pretrained_level,
+                    )
+                    fnn_configs.append(config)
 
 # tfn
 exp = 'tfn'
@@ -137,54 +157,67 @@ batch_size = 256
 n_epochs = 5000
 embed_dim = 16
 
+pretrained_epochs = 1000
+pretrained_lr = 1e-3
+pretrained_level = 3
+
 tfn_configs = []
 # when the original code was updated, we want to rerun the experiments for the following update_configs
 update_tfn_configs = []
 
-for depth in [1, 2, 4]:
-    for rank in range(1, width + 1):
-        # sgd
-        method = 'sgd'
-        for lr in [1e-2, 1e-3, 1e-4]:
-            for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
-                config = (
-                    embed_dim,
-                    n_head, 
-                    depth,
-                    rank,
-                    batch_size,
-                    seq_len,
-                    method,
-                    n_epochs,
-                    lr,
-                    weight_decay,
-                    wandb,
-                    std,
-                    n_test,
-                    exp,
-                )
-                tfn_configs.append(config)
-                update_tfn_configs.append(config)
-                
-        # ours
-        method = 'ours'
-        config = (
-            embed_dim,
-            n_head, 
-            depth,
-            rank,
-            batch_size,
-            seq_len,
-            method,
-            n_epochs,
-            lr,
-            weight_decay,
-            wandb,
-            std,
-            n_test,
-            exp,
-        )
-        tfn_configs.append(config)
+for pretrained in [0, 1]:
+    for depth in [1, 2, 4]:
+        for rank in range(1, width + 1):
+            # sgd
+            method = 'sgd'
+            for lr in [1e-2, 1e-3, 1e-4]:
+                for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
+                    config = (
+                        embed_dim,
+                        n_head, 
+                        depth,
+                        rank,
+                        batch_size,
+                        seq_len,
+                        method,
+                        n_epochs,
+                        lr,
+                        weight_decay,
+                        wandb,
+                        std,
+                        n_test,
+                        exp,
+                        pretrained,
+                        pretrained_epochs,
+                        pretrained_lr,
+                        pretrained_level,
+                    )
+                    tfn_configs.append(config)
+                    update_tfn_configs.append(config)
+                    
+            # ours
+            method = 'ours'
+            config = (
+                embed_dim,
+                n_head, 
+                depth,
+                rank,
+                batch_size,
+                seq_len,
+                method,
+                n_epochs,
+                lr,
+                weight_decay,
+                wandb,
+                std,
+                n_test,
+                exp,
+                pretrained,
+                pretrained_epochs,
+                pretrained_lr,
+                pretrained_level,
+            )
+            tfn_configs.append(config)
 
 new_fnn_configs = pd.DataFrame(fnn_configs)
 new_tfn_configs = pd.DataFrame(tfn_configs)
