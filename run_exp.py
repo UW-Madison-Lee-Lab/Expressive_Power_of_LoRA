@@ -98,6 +98,65 @@ class approx_fnn:
                 discrepency_matrix = self.target_m.linearlist[i].weight.data - frozen_prod_weight
                 self.target_m.linearlist[i].weight.data = frozen_prod_weight + torch.eye(self.width) * torch.mean(torch.svd(discrepency_matrix)[1])
 
+    def pretrained(
+        self, 
+        n_epochs,
+        batch_size,
+        lr,
+        weight_decay = 0,
+    ):
+        set_seed()
+        
+        print('Pretraining...')
+        pretrained_m = deepcopy(self.frozen_m)
+        pretrained_m.train()
+        
+        # update all the parameters
+        params = []
+        for l in range(self.frozen_depth):
+            params.append({'params': pretrained_m.linearlist[l].weight, 'lr': lr, 'weight_decay': weight_decay})
+            if self.use_bias:
+                params.append({'params': pretrained_m.linearlist[l].bias, 'lr': lr, 'weight_decay': weight_decay})
+                
+        opt = optim.Adam(params)
+        
+        # Initialize tqdm
+        iter_obj = tqdm(range(n_epochs))
+        # training
+        for i in iter_obj:
+            # generate random input from some Gaussian distribution
+            x_train = torch.randn(batch_size, self.width) 
+            y_train = self.target_m(x_train).detach()
+            y_train.requires_grad = False
+            
+            y_pred = pretrained_m(x_train)
+            train_loss = self.criterion(y_pred, y_train)
+            
+            if self.wandb:
+                wandb.log({'pretrain_train_loss': train_loss.item()})
+            
+            opt.zero_grad()
+            train_loss.backward()
+            opt.step()
+            
+            # update tqdm description with current loss
+            iter_obj.set_description(f"Loss of SGD: {train_loss.item():.4f}")
+            
+        # validation
+        pretrained_m.eval()
+        x_val =  torch.randn(batch_size, self.width)
+        y_val = self.target_m(x_val).detach()
+        y_val.requires_grad = False
+        
+        y_pred = pretrained_m(x_val)
+        self.val_loss = self.criterion(y_pred, y_val)
+        
+        if self.wandb:
+            wandb.log({'pretrain_val_loss': self.val_loss.item()})
+            
+        self.frozen_m = pretrained_m
+        self.frozen_m.eval()
+    
     def adapt_sgd(
         self,
         n_epochs,
