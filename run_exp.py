@@ -22,6 +22,10 @@ class approx_fnn:
         weight_decay = 0,
         log_wandb = 0,
         init_mode = 'default',
+        pretrained = 0,
+        pretrained_epochs = 1000,
+        pretrained_lr = 1e-3,
+        pretrained_level = 3,
     ):
         set_seed()
         
@@ -35,6 +39,13 @@ class approx_fnn:
         self.init_models(std, activation, init_mode)
         
         self.criterion = nn.MSELoss()
+        if pretrained:
+            self.pretrained(
+                pretrained_epochs,
+                batch_size,
+                pretrained_lr,
+                pretrained_level,
+            )
         
         # perform finetune
         if method == 'ours':
@@ -103,7 +114,7 @@ class approx_fnn:
         n_epochs,
         batch_size,
         lr,
-        weight_decay = 0,
+        pretrained_level = 3,
     ):
         set_seed()
         
@@ -114,9 +125,9 @@ class approx_fnn:
         # update all the parameters
         params = []
         for l in range(self.frozen_depth):
-            params.append({'params': pretrained_m.linearlist[l].weight, 'lr': lr, 'weight_decay': weight_decay})
+            params.append({'params': pretrained_m.linearlist[l].weight, 'lr': lr, 'weight_decay': 0})
             if self.use_bias:
-                params.append({'params': pretrained_m.linearlist[l].bias, 'lr': lr, 'weight_decay': weight_decay})
+                params.append({'params': pretrained_m.linearlist[l].bias, 'lr': lr, 'weight_decay': 0})
                 
         opt = optim.Adam(params)
         
@@ -132,6 +143,13 @@ class approx_fnn:
             y_pred = pretrained_m(x_train)
             train_loss = self.criterion(y_pred, y_train)
             
+            if i == 0: 
+                init_loss = train_loss.item()
+            else:
+                if train_loss.item() < init_loss / pretrained_level:
+                    print(f"Pretraining finished at epoch {i}.")
+                    break
+                
             if self.wandb:
                 wandb.log({'pretrain_train_loss': train_loss.item()})
             
@@ -597,6 +615,10 @@ if __name__ == '__main__':
     parser.add_argument('--n_test', type=int, default=10000)
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--init_mode', type=str, default='default', choices = ['default', 'uniform_singular_values'])
+    parser.add_argument('--pretrained', type=int, default=0, choices = [0,1])
+    parser.add_argument('--pretrained_epochs', type=int, default=1000)
+    parser.add_argument('--pretrained_lr', type=float, default=1e-3)
+    parser.add_argument('--pretrained_level', type=int, default=3)
     
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
@@ -640,6 +662,10 @@ if __name__ == '__main__':
             weight_decay = args.weight_decay,
             log_wandb = args.wandb,
             init_mode = args.init_mode,
+            pretrained = args.pretrained,
+            pretrained_epochs = args.pretrained_epochs,
+            pretrained_lr = args.pretrained_lr,
+            pretrained_level = args.pretrained_level,
         )
 
     elif args.exp == 'tfn':
