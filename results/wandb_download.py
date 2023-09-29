@@ -1,6 +1,6 @@
 import pandas as pd 
 import wandb
-api = wandb.Api()
+api = wandb.Api(timeout=300)
 
 # Project is specified by <entity/project-name>
 runs = api.runs("lee-lab-uw-madison/lora-theory")
