@@ -119,7 +119,7 @@ Test loss: 1.9799
 
 ## Example 5: FFN w. pretrained method: lp
 ```
-python run_exp.py --width 8 --target_depth 1 --frozen_depth 2 --rank 2 --use_bias 1 --activation relu --std 0.25 --method lp --batch_size 256 --n_epochs 5000 --lr 0.0001 --n_test 5000 --weight_decay 0.01 --init_mode uniform_singular_values --exp fnn --wandb 0 --pretrained 1 --pretrained_epochs 1000 --pretrained_lr .001 --pretrained_level 3 
+python run_exp.py --width 8 --target_depth 1 --frozen_depth 2 --rank 2 --use_bias 1 --activation relu --std 0.25 --method flt --batch_size 256 --n_epochs 5000 --lr 0.0001 --n_test 5000 --weight_decay 0.01 --init_mode uniform_singular_values --exp fnn --wandb 0 --pretrained 1 --pretrained_epochs 1000 --pretrained_lr .001 --pretrained_level 3 --last_layers 1
 ```
 
 Output
@@ -132,7 +132,7 @@ Experiment Setting:
 | use_bias: 1
 | activation: relu
 | std: 0.25
-| method: lp
+| method: flt
 | batch_size: 256
 | n_epochs: 5000
 | lr: 0.0001
@@ -144,14 +144,15 @@ Experiment Setting:
 | pretrained_lr: 0.001
 | pretrained_level: 3
 | tune_bias: 1
+| last_layers: 1
 | n_head: 2
 | seq_length: 10
 | exp: fnn
 | wandb: 0
 Pretraining...
-Loss of SGD: 0.0497:  15%|███████████████████████                                                                                                                                   | 150/1000 [00:00<00:01, 744.07it/s]Pretraining finished at epoch 192.
-Loss of SGD: 0.0497:  19%|█████████████████████████████▌                                                                                                                            | 192/1000 [00:00<00:01, 768.58it/s]
-Loss of SGD: 0.0477: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5000/5000 [00:04<00:00, 1004.20it/s]
+Loss of SGD: 0.0497:  15%|███████████████████████▎                                                                                                                                  | 151/1000 [00:00<00:01, 755.23it/s]Pretraining finished at epoch 192.
+Loss of SGD: 0.0497:  19%|█████████████████████████████▌                                                                                                                            | 192/1000 [00:00<00:01, 753.62it/s]
+Loss of SGD: 0.0477: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5000/5000 [00:04<00:00, 1009.30it/s]
 Validation loss: 0.0484
 Test loss: 0.0469
 ```

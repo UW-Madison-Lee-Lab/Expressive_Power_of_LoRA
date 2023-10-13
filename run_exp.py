@@ -27,6 +27,7 @@ class approx_fnn:
         pretrained_lr = 1e-3,
         pretrained_level = 3,
         tune_bias = 1,
+        last_layers = 1,
     ):
         set_seed()
         
@@ -59,15 +60,16 @@ class approx_fnn:
                 weight_decay = weight_decay,
                 tune_bias = tune_bias,
             )
-        elif method == 'lp':
-            adapted_m = self.adapt_lp(
+        elif method == 'flt':
+            adapted_m = self.adapt_flt(
                 n_epochs = n_epochs,
                 batch_size = batch_size,
                 lr = lr,
                 weight_decay = weight_decay,
+                last_layers = last_layers,
             )
         else:
-            raise NotImplementedError(f"We only support ours, sgd, and lp for parameter method, and {method} is not supported.")
+            raise NotImplementedError(f"We only support ours, sgd, and flt for parameter method, and {method} is not supported.")
         
         # evaluate the adapted model
         self.eval(adapted_m, n_test = n_test)
@@ -257,21 +259,25 @@ class approx_fnn:
             
         return self.adam(n_epochs, batch_size, adapted_m, opt)
     
-    def adapt_lp(
+    def adapt_flt(
         self, 
         n_epochs,
         batch_size,
         lr,
         weight_decay = 0,
+        last_layers = 1,
     ):
         set_seed()
         
         adapted_m = deepcopy(self.frozen_m)
         adapted_m.train()
         
+        if last_layers is None:
+            last_layers = 1
+        
         # specify the parameters to be optimized
         params = []
-        for l in range(self.frozen_depth)[1:]:
+        for l in range(self.frozen_depth)[(self.frozen_depth - last_layers):]:
             params.append({'params': adapted_m.linearlist[l].weight, 'lr': lr, 'weight_decay': weight_decay})
             params.append({'params': adapted_m.linearlist[l].bias, 'lr': lr, 'weight_decay': weight_decay})
             
@@ -743,7 +749,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_bias', type=int, default=1, choices = [0,1])
     parser.add_argument('--activation', type=str, default='relu', choices = ['relu', 'linear'])
     parser.add_argument('--std', type=float, default=.25)
-    parser.add_argument('--method', type=str, default='ours', choices = ['ours', 'sgd', 'lp'])
+    parser.add_argument('--method', type=str, default='ours', choices = ['ours', 'sgd', 'flt'])
     parser.add_argument('--batch_size', type=int, default=5000)
     parser.add_argument('--n_epochs', type=int, default=1000)
     parser.add_argument('--lr', type=float, default=1e-3)
@@ -755,6 +761,7 @@ if __name__ == '__main__':
     parser.add_argument('--pretrained_lr', type=float, default=1e-3)
     parser.add_argument('--pretrained_level', type=int, default=3)
     parser.add_argument('--tune_bias', type=int, default=1, choices = [0,1])
+    parser.add_argument('--last_layers', type=int, default=1)
     
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
@@ -803,6 +810,7 @@ if __name__ == '__main__':
             pretrained_lr = args.pretrained_lr,
             pretrained_level = args.pretrained_level,
             tune_bias = args.tune_bias,
+            last_layers = args.last_layers,
         )
 
     elif args.exp == 'tfn':
