@@ -26,6 +26,7 @@ class approx_fnn:
         pretrained_epochs = 1000,
         pretrained_lr = 1e-3,
         pretrained_level = 3,
+        tune_bias = 1,
     ):
         set_seed()
         
@@ -56,9 +57,17 @@ class approx_fnn:
                 batch_size = batch_size,
                 lr = lr,
                 weight_decay = weight_decay,
+                tune_bias = tune_bias,
+            )
+        elif method == 'lp':
+            adapted_m = self.adapt_lp(
+                n_epochs = n_epochs,
+                batch_size = batch_size,
+                lr = lr,
+                weight_decay = weight_decay,
             )
         else:
-            raise NotImplementedError(f"We only support ours and sgd for parameter method, and {method} is not supported.")
+            raise NotImplementedError(f"We only support ours, sgd, and lp for parameter method, and {method} is not supported.")
         
         # evaluate the adapted model
         self.eval(adapted_m, n_test = n_test)
@@ -174,6 +183,53 @@ class approx_fnn:
             
         self.frozen_m = pretrained_m
         self.frozen_m.eval()
+        
+    def adam(
+        self,
+        n_epochs,
+        batch_size,
+        adapted_m,
+        opt,
+    ):
+        set_seed()
+        
+        # Initialize tqdm
+        iter_obj = tqdm(range(n_epochs))
+        # finetuning
+        for i in iter_obj:
+            # generate random input from some Gaussian distribution
+            x_train = torch.randn(batch_size, self.width)
+            y_train = self.target_m(x_train).detach()
+            y_train.requires_grad = False
+            
+            y_pred = adapted_m(x_train)
+            self.train_loss = self.criterion(y_pred, y_train)
+            
+            if self.wandb:
+                wandb.log({'train_loss': self.train_loss.item()})
+                
+            opt.zero_grad()
+            self.train_loss.backward()
+            opt.step()
+            
+            # update tqdm description with current loss
+            iter_obj.set_description(f"Loss of SGD: {self.train_loss.item():.4f}")
+            
+        # validation
+        adapted_m.eval()
+        x_val =  torch.randn(batch_size, self.width)
+        y_val = self.target_m(x_val).detach()
+        y_val.requires_grad = False
+        
+        y_pred = adapted_m(x_val)
+        self.val_loss = self.criterion(y_pred, y_val)
+        
+        if self.wandb:
+            wandb.log({'val_loss': self.val_loss.item()})
+        else:
+            print(f"Validation loss: {self.val_loss.item():.4f}")
+            
+        return adapted_m
     
     def adapt_sgd(
         self,
@@ -181,6 +237,7 @@ class approx_fnn:
         batch_size,
         lr,
         weight_decay = 0,
+        tune_bias = 1,
     ):
         set_seed()
         
@@ -193,48 +250,34 @@ class approx_fnn:
             params.append({'params': adapted_m.loralist[l].lora_A, 'lr': lr, 'weight_decay': weight_decay})
             params.append({'params': adapted_m.loralist[l].lora_B, 'lr': lr, 'weight_decay': weight_decay})
             
-            if self.use_bias:
+            if self.use_bias and tune_bias:
                 params.append({'params': adapted_m.linearlist[l].bias, 'lr': lr, 'weight_decay': weight_decay})
             
         opt = optim.Adam(params)
             
-        # Initialize tqdm
-        iter_obj = tqdm(range(n_epochs))
-        # finetuning
-        for i in iter_obj:
-            # generate random input from some Gaussian distribution
-            x_train = torch.randn(batch_size, self.width) 
-            y_train = self.target_m(x_train).detach()
-            y_train.requires_grad = False
-            
-            y_pred = adapted_m(x_train)
-            self.train_loss = self.criterion(y_pred, y_train)
-            
-            if self.wandb:
-                wandb.log({'train_loss': self.train_loss.item()})
-            
-            opt.zero_grad()
-            self.train_loss.backward()
-            opt.step()
-            
-            # update tqdm description with current loss
-            iter_obj.set_description(f"Loss of SGD: {self.train_loss.item():.4f}")      
-            
-        # validation
-        adapted_m.eval()
-        x_val =  torch.randn(batch_size, self.width) 
-        y_val = self.target_m(x_val).detach()
-        y_val.requires_grad = False
+        return self.adam(n_epochs, batch_size, adapted_m, opt)
+    
+    def adapt_lp(
+        self, 
+        n_epochs,
+        batch_size,
+        lr,
+        weight_decay = 0,
+    ):
+        set_seed()
         
-        y_pred = adapted_m(x_val)
-        self.val_loss = self.criterion(y_pred, y_val)
+        adapted_m = deepcopy(self.frozen_m)
+        adapted_m.train()
         
-        if self.wandb:
-            wandb.log({'val_loss': self.val_loss.item()})
-        else:
-            print(f"Validation loss: {self.val_loss.item():.4f}")
+        # specify the parameters to be optimized
+        params = []
+        for l in range(self.frozen_depth)[1:]:
+            params.append({'params': adapted_m.linearlist[l].weight, 'lr': lr, 'weight_decay': weight_decay})
+            params.append({'params': adapted_m.linearlist[l].bias, 'lr': lr, 'weight_decay': weight_decay})
+            
+        opt = optim.Adam(params)
         
-        return adapted_m
+        return self.adam(n_epochs, batch_size, adapted_m, opt)
     
     def adapt_ours(
         self,
@@ -700,7 +743,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_bias', type=int, default=1, choices = [0,1])
     parser.add_argument('--activation', type=str, default='relu', choices = ['relu', 'linear'])
     parser.add_argument('--std', type=float, default=.25)
-    parser.add_argument('--method', type=str, default='ours', choices = ['ours', 'sgd'])
+    parser.add_argument('--method', type=str, default='ours', choices = ['ours', 'sgd', 'lp'])
     parser.add_argument('--batch_size', type=int, default=5000)
     parser.add_argument('--n_epochs', type=int, default=1000)
     parser.add_argument('--lr', type=float, default=1e-3)
@@ -711,6 +754,7 @@ if __name__ == '__main__':
     parser.add_argument('--pretrained_epochs', type=int, default=1000)
     parser.add_argument('--pretrained_lr', type=float, default=1e-3)
     parser.add_argument('--pretrained_level', type=int, default=3)
+    parser.add_argument('--tune_bias', type=int, default=1, choices = [0,1])
     
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
@@ -758,6 +802,7 @@ if __name__ == '__main__':
             pretrained_epochs = args.pretrained_epochs,
             pretrained_lr = args.pretrained_lr,
             pretrained_level = args.pretrained_level,
+            tune_bias = args.tune_bias,
         )
 
     elif args.exp == 'tfn':
