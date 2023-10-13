@@ -44,7 +44,7 @@ Run `python run_exp.py` with specified setting:
 * `--pretrained`: whether the frozen model has been pretrained or not;
 * `--pretrained_epochs`: the number epochs for pretraining the frozen model;
 * `--pretrained_lr`: the learning rate employed when pretraining the frozen model;
-* `--pretrained_level`: stop pretraining when the loss $\leq$ ()initial loss)/`pretrained_level`;
+* `--pretrained_level`: stop pretraining when the loss $\leq$ (initial loss)/`pretrained_level`;
 * `--tune_bias`: whether to tune bias or not in FNN experiments on LoRA;
 * `--last_layers`: the number final layers to update in the final layer tuning ('flt') experiments;
 * `--n_head`: the number of attention head $H$;
@@ -58,7 +58,13 @@ Now, we provide a few examples and the expected outputs.
 Command:
 
 ```
-python run_exp.py --width 8 --target_depth 1 --frozen_depth 2 --rank 3 --use_bias 1 --activation relu --std 0.25 --method ours --batch_size 256 --n_epochs 5000 --lr 0.0001 --n_test 5000 --weight_decay 0.01 --init_mode uniform_singular_values --exp fnn --wandb 0Experiment Setting:
+python run_exp.py --width 8 --target_depth 1 --frozen_depth 2 --rank 3 --use_bias 1 --activation relu --std 0.25 --method ours --batch_size 256 --n_epochs 5000 --lr 0.0001 --n_test 5000 --weight_decay 0.01 --init_mode uniform_singular_values --exp fnn --wandb 0
+```
+
+Output:
+
+```
+Experiment Setting:
 | width: 8
 | target_depth: 1
 | frozen_depth: 2
@@ -88,6 +94,7 @@ Test loss: 0.0445
 ```
 
 ### Example 2: Approximating one-layer FNN with pretrained multi-layer FNN via LoRA
+
 Command:
 
 ```
@@ -131,6 +138,7 @@ Test loss: 0.0071
 ```
 
 ### Example 3: Approximating TFN with random TFN via LoRA
+
 Command:
 
 ```
@@ -173,6 +181,7 @@ Test loss: 2.2730
 ### Example 4: Approximating TFN with pretrained TFN via LoRA
 
 Command:
+
 ```
 python run_exp.py --width 8 --target_depth 1 --rank 2  --n_head 2 --batch_size 256 --seq_length 10 --method sgd --n_epochs 800 --lr .001 --weight_decay .01 --exp tfn --wandb 0 --std 0.25 --n_test 5000 --pretrained 1 --pretrained_epochs 1000 --pretrained_lr .002 --pretrained_level 3
 ```
@@ -214,6 +223,7 @@ Test loss: 1.9348
 ```
 
 ### Example 5: Tuning Final Layers
+
 Command:
 
 ```
@@ -258,12 +268,12 @@ Test loss: 0.0469
 
 ## Run a Group of Experiments
 
-In `configs/`, we have `config.py` for specifying the group of experiments to run, and the group of configurations are saved into `fnn_configs.csv` and `tfn_configs.csv` once you run `python config.py`. 
+In `configs/`, we have `config.py` for specifying the group of experiments to run, and the group of configurations are saved into `fnn_configs.csv` and `tfn_configs.csv` once you run `python config.py`.
 
-If you want to further add additional experiment configurations, you just need to add the corresponding into `config.py`, and run `python config.py`. The additional configurations will be saved into `additional_fnn_configs.csv` and `additional_tfn_configs.csv`.
+If you want to further add additional experiment configurations, you just need to add the corresponding code into `config.py`, and run `python config.py`. The additional configurations will be saved into `additional_fnn_configs.csv` and `additional_tfn_configs.csv`.
 
-If you changed the code of the experiment functions, and want to rerun some experiments, you can specify the configurations to rerun and the corresponding configurations will be stored into `update_fnn_configs.csv` and `update_tfn_configs.csv`.
+If you changed the code of the experiment functions, and want to rerun some experiments, you can specify the configurations to be rerun in `config.py`. The corresponding configurations will be stored into `update_fnn_configs.csv` and `update_tfn_configs.csv` by running `python config.py`. 
 
 ## Results Visualization
 
-By running the notebooks in `draw_plots`, you can obtain the figures in our paper. 
+By running the notebooks in `draw_plots`, you can obtain the figures in our paper.
