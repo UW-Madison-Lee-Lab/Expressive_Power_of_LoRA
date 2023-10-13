@@ -55,6 +55,7 @@ for init_mode in ['default', 'uniform_singular_values']:
                             pretrained_lr,
                             pretrained_level,
                             1, # tune_bias
+                            0, # last_layers
                         )
                         fnn_configs.append(config)
                         
@@ -155,13 +156,13 @@ for init_mode in ['default', 'uniform_singular_values']:
                     )
                     fnn_configs.append(config)
 
+    # final layers tuning
     target_depth = 1          
     for pretrained in [0, 1]:
             frozen_depth_list = np.array([2, 4, 8]) * target_depth
             for frozen_depth in frozen_depth_list:
                 tdl = frozen_depth // target_depth
                 for last_layers in range(1, frozen_depth):
-                    # final layers tuning
                     method = 'flt'
                     for lr in [1e-2, 1e-3, 1e-4]:
                         for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
