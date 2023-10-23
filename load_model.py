@@ -60,11 +60,11 @@ class FNN(nn.Module):
         else:
             raise NotImplementedError(f'We only support relu and linear activation, and {activation} is not supported.')
         
+        self.linearlist = nn.ModuleList([nn.Linear(width, width, bias=use_bias) for _ in range(depth)])
+        
         self.apply_lora = apply_lora
         if self.apply_lora: 
             self.loralist = nn.ModuleList([LoRA(width, rank, std) for _ in range(depth)])
-        
-        self.linearlist = nn.ModuleList([nn.Linear(width, width, bias=use_bias) for _ in range(depth)])
         
     def forward(self, x):
         for l in range(self.depth):

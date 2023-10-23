@@ -80,6 +80,7 @@ class approx_fnn:
         activation,
         init_mode,
     ):
+        
         # randomly initialize the target model
         self.target_m = FNN(
             depth = self.target_depth,

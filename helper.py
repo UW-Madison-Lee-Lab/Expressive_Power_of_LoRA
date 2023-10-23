@@ -61,18 +61,17 @@ def our_construction(target_weight, frozen_weights, rank, log_wandb, atol = 1e-3
     adapted_prod_weight = torch.eye(width)
     for l in range(depth):
         # compute the lora adapter for the l-th layer
-        Ql = V @ generate_diag_matrix(width, min(rank*l, width), min(rank*(l+1), width)) @ V.T
-        lora_adapter = torch.inverse(frozen_prod_weight_2depth[l]) @ discrepancy_weight @ Ql @ torch.inverse(adapted_prod_weight)
-        adapted_prod_weight = (frozen_weights[l] + lora_adapter) @ adapted_prod_weight
+        lora_A_ = torch.inverse(frozen_prod_weight_2depth[l]) @ discrepancy_weight @ V[:, min(rank*l, width):min(rank*(l+1),width)]
+        lora_A.append(lora_A_)
+        lora_B_ = (V.T @ torch.inverse(adapted_prod_weight))[min(rank*l, width): min(rank*(l+1), width), :].T
+        lora_B.append(lora_B_)
         
-        # update the lora weights in the lora adapter
-        U_Q, S_Q, V_Q = torch.svd(lora_adapter)
-        lora_A.append(U_Q @ torch.diag(S_Q))
-        lora_B.append(V_Q)
+        adapted_prod_weight = (frozen_weights[l] + lora_A_ @ lora_B_.T) @ adapted_prod_weight
     
     # Check if the manual and automatic outputs match
     match = torch.allclose(adapted_prod_weight, target_weight, atol=atol)
     if (not match) and (rank >= width // depth + int(width % depth != 0)):
         print("WARNING: our construction does not offer exact representation!")
         print("The maximum discrepancy is", (torch.abs(adapted_prod_weight - target_weight).max()/torch.abs(target_weight).max()).item())
+
     return lora_A, lora_B    
