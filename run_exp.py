@@ -767,7 +767,7 @@ if __name__ == '__main__':
     parser.add_argument('--pretrained_level', type=int, default=3)
     parser.add_argument('--tune_bias', type=int, default=1, choices = [0,1])
     parser.add_argument('--last_layers', type=int, default=1)
-    parser.add_argument('-seed', type=int, default=123)
+    parser.add_argument('--seed', type=int, default=123)
     
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
