@@ -28,8 +28,10 @@ class approx_fnn:
         pretrained_level = 3,
         tune_bias = 1,
         last_layers = 1,
+        seed = 123,
     ):
-        set_seed()
+        self.seed = seed
+        set_seed(self.seed)
         
         self.width = width
         self.target_depth = target_depth
@@ -128,7 +130,7 @@ class approx_fnn:
         lr,
         pretrained_level = 3,
     ):
-        set_seed()
+        set_seed(self.seed)
         
         print('Pretraining...')
         pretrained_m = deepcopy(self.frozen_m)
@@ -194,7 +196,7 @@ class approx_fnn:
         adapted_m,
         opt,
     ):
-        set_seed()
+        set_seed(self.seed)
         
         # Initialize tqdm
         iter_obj = tqdm(range(n_epochs))
@@ -242,7 +244,7 @@ class approx_fnn:
         weight_decay = 0,
         tune_bias = 1,
     ):
-        set_seed()
+        set_seed(self.seed)
         
         adapted_m = deepcopy(self.frozen_m)
         adapted_m.train()
@@ -268,7 +270,7 @@ class approx_fnn:
         weight_decay = 0,
         last_layers = 1,
     ):
-        set_seed()
+        set_seed(self.seed)
         
         adapted_m = deepcopy(self.frozen_m)
         adapted_m.train()
@@ -290,7 +292,7 @@ class approx_fnn:
         self,
         batch_size,
     ):
-        set_seed()
+        set_seed(self.seed)
         
         tdl = self.frozen_depth // self.target_depth
         adapted_m = deepcopy(self.frozen_m)
@@ -354,7 +356,7 @@ class approx_fnn:
         adapted_model,
         n_test,
     ):
-        set_seed()
+        set_seed(self.seed)
         
         adapted_model.eval()
         
@@ -394,8 +396,10 @@ class approx_tfn:
         pretrained_epochs = 1000,
         pretrained_lr = 1e-3,
         pretrained_level = 3,
+        seed = 123,
     ):
-        set_seed()
+        self.seed = seed
+        set_seed(self.seed)
         
         self.embed_dim = embed_dim
         self.n_head = n_head
@@ -465,7 +469,7 @@ class approx_tfn:
         lr,
         pretrained_level = 3,
     ):
-        set_seed()
+        set_seed(self.seed)
         
         print('Pretraining...')
         pretrained_m = deepcopy(self.frozen_m)
@@ -546,7 +550,7 @@ class approx_tfn:
         lr, 
         weight_decay = 0,
     ):
-        set_seed()
+        set_seed(self.seed)
         
         adapted_m = deepcopy(self.frozen_m)
         adapted_m.train()
@@ -614,7 +618,7 @@ class approx_tfn:
     def adapt_ours(
         self,
     ):
-        set_seed()
+        set_seed(self.seed)
         
         adapted_m = deepcopy(self.frozen_m)
         adapted_m.train()
@@ -763,6 +767,7 @@ if __name__ == '__main__':
     parser.add_argument('--pretrained_level', type=int, default=3)
     parser.add_argument('--tune_bias', type=int, default=1, choices = [0,1])
     parser.add_argument('--last_layers', type=int, default=1)
+    parser.add_argument('-seed', type=int, default=123)
     
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
@@ -781,7 +786,7 @@ if __name__ == '__main__':
     # initialize wandb
     if args.wandb:
         wandb.init(
-            project = "lora-theory",
+            project = "lora-expressive-power",
             group =  args.exp,
             entity = 'lee-lab-uw-madison',
             job_type = args.init_mode,
@@ -812,6 +817,7 @@ if __name__ == '__main__':
             pretrained_level = args.pretrained_level,
             tune_bias = args.tune_bias,
             last_layers = args.last_layers,
+            seed = args.seed,
         )
 
     elif args.exp == 'tfn':
@@ -838,6 +844,7 @@ if __name__ == '__main__':
             pretrained_epochs = args.pretrained_epochs,
             pretrained_lr = args.pretrained_lr,
             pretrained_level = args.pretrained_level,
+            seed = args.seed,
         )
 
     if args.wandb:

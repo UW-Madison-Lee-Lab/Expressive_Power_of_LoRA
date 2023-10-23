@@ -85,12 +85,13 @@ Experiment Setting:
 | pretrained_level: 3
 | tune_bias: 1
 | last_layers: 1
+| seed: 123
 | n_head: 2
 | seq_length: 10
 | exp: fnn
 | wandb: 0
-Singular values: tensor([0.5686, 0.5686, 0.5686, 0.5686, 0.5686, 0.5686, 0.5686, 0.5686])
-Test loss: 0.0445
+Singular values: tensor([0.5820, 0.5820, 0.5820, 0.5820, 0.5820, 0.5820, 0.5820, 0.5820])
+Test loss: 0.0329
 ```
 
 ### Example 2: Approximating one-layer FNN with pretrained multi-layer FNN via LoRA
@@ -125,16 +126,16 @@ Experiment Setting:
 | pretrained_level: 3
 | tune_bias: 1
 | last_layers: 1
+| seed: 123
 | n_head: 2
 | seq_length: 10
 | exp: fnn
 | wandb: 0
 Pretraining...
-Loss of SGD: 0.0497:  16%|██████████████████▎                                                                                                | 159/1000 [00:00<00:01, 790.92it/s]
-Pretraining finished at epoch 192.
-Loss of SGD: 0.0497:  19%|██████████████████████                                                                                             | 192/1000 [00:00<00:01, 789.17it/s]
-Singular values: tensor([0.5390, 0.4101, 0.3990, 0.3265, 0.2287, 0.1750, 0.1188, 0.0557])
-Test loss: 0.0071
+Loss of SGD: 0.0715:  19%|█████████████████████████████▍                                                                                                                            | 191/1000 [00:00<00:01, 669.65it/s]Pretraining finished at epoch 199.
+Loss of SGD: 0.0715:  20%|██████████████████████████████▋                                                                                                                           | 199/1000 [00:00<00:01, 634.73it/s]
+Singular values: tensor([0.7180, 0.6025, 0.3661, 0.3111, 0.2087, 0.1261, 0.0905, 0.0088])
+Test loss: 0.0041
 ```
 
 ### Example 3: Approximating TFN with random TFN via LoRA
@@ -169,11 +170,12 @@ Experiment Setting:
 | pretrained_level: 3
 | tune_bias: 1
 | last_layers: 1
+| seed: 123
 | n_head: 2
 | seq_length: 10
 | exp: tfn
 | wandb: 0
-Loss of SGD: 2.1334: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 800/800 [00:14<00:00, 54.51it/s]
+Loss of SGD: 2.1334: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 800/800 [00:13<00:00, 59.75it/s]
 Validation loss: 2.1712
 Test loss: 2.2730
 ```
@@ -210,14 +212,15 @@ Experiment Setting:
 | pretrained_level: 3
 | tune_bias: 1
 | last_layers: 1
+| seed: 123
 | n_head: 2
 | seq_length: 10
 | exp: tfn
 | wandb: 0
 Pretraining...
-Loss of SGD: 2.2482:  10%|████████████▏                                                                                                       | 105/1000 [00:01<00:16, 53.77it/s]Pretraining finished at epoch 110.
-Loss of SGD: 2.2482:  11%|████████████▊                                                                                                       | 110/1000 [00:01<00:16, 55.21it/s]
-Loss of SGD: 1.8310: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 800/800 [00:14<00:00, 53.43it/s]
+Loss of SGD: 2.2482:  11%|█████████████████                                                                                                                                          | 110/1000 [00:02<00:14, 60.26it/s]Pretraining finished at epoch 110.
+Loss of SGD: 2.2482:  11%|█████████████████                                                                                                                                          | 110/1000 [00:02<00:16, 54.25it/s]
+Loss of SGD: 1.8310: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 800/800 [00:14<00:00, 55.35it/s]
 Validation loss: 1.8559
 Test loss: 1.9348
 ```
@@ -254,16 +257,17 @@ Experiment Setting:
 | pretrained_level: 3
 | tune_bias: 1
 | last_layers: 1
+| seed: 123
 | n_head: 2
 | seq_length: 10
 | exp: fnn
 | wandb: 0
 Pretraining...
-Loss of SGD: 0.0497:  15%|███████████████████████▎                                                                                                                                  | 151/1000 [00:00<00:01, 755.23it/s]Pretraining finished at epoch 192.
-Loss of SGD: 0.0497:  19%|█████████████████████████████▌                                                                                                                            | 192/1000 [00:00<00:01, 753.62it/s]
-Loss of SGD: 0.0477: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5000/5000 [00:04<00:00, 1009.30it/s]
-Validation loss: 0.0484
-Test loss: 0.0469
+Loss of SGD: 0.0715:  16%|████████████████████████▋                                                                                                                                 | 160/1000 [00:00<00:01, 784.41it/s]Pretraining finished at epoch 199.
+Loss of SGD: 0.0715:  20%|██████████████████████████████▋                                                                                                                           | 199/1000 [00:00<00:01, 785.33it/s]
+Loss of SGD: 0.0523: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5000/5000 [00:04<00:00, 1145.20it/s]
+Validation loss: 0.0554
+Test loss: 0.0545
 ```
 
 ## Run a Group of Experiments
@@ -272,7 +276,7 @@ In `configs/`, we have `config.py` for specifying the group of experiments to ru
 
 If you want to further add additional experiment configurations, you just need to add the corresponding code into `config.py`, and run `python config.py`. The additional configurations will be saved into `additional_fnn_configs.csv` and `additional_tfn_configs.csv`.
 
-If you changed the code of the experiment functions, and want to rerun some experiments, you can specify the configurations to be rerun in `config.py`. The corresponding configurations will be stored into `update_fnn_configs.csv` and `update_tfn_configs.csv` by running `python config.py`. 
+If you changed the code of the experiment functions, and want to rerun some experiments, you can specify the configurations to be rerun in `config.py`. The corresponding configurations will be stored into `update_fnn_configs.csv` and `update_tfn_configs.csv` by running `python config.py`.
 
 ## Results Visualization
 
