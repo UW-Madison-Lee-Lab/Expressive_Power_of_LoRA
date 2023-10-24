@@ -3,7 +3,7 @@ import wandb
 api = wandb.Api(timeout=300)
 
 # Project is specified by <entity/project-name>
-runs = api.runs("lee-lab-uw-madison/lora-theory")
+runs = api.runs("lee-lab-uw-madison/lora-expressive-power")
 
 summary_list, config_list, name_list = [], [], []
 for run in runs: 
