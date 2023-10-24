@@ -138,5 +138,5 @@ run_tfn_df.columns = [
 # Find additional configs
 rerun_tfn_df = config_tfn_df.merge(run_tfn_df, how='left', indicator=True).loc[lambda x : x['_merge']=='left_only'].drop('_merge', axis=1).reset_index(drop=True)
 # insert column wandb consisting of ones after the column weight_decay
-rerun_tfn_df.insert(11, 'wandb', 1)
+rerun_tfn_df.insert(10, 'wandb', 1)
 rerun_tfn_df.to_csv('../configs/rerun_tfn_configs.csv', index=False, header=False)
