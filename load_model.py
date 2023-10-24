@@ -47,6 +47,7 @@ class FNN(nn.Module):
         use_bias = True,
         apply_lora = True,
         activation = 'relu',
+        rank_step = 0,
     ):
         super().__init__()
         self.depth = depth
@@ -64,7 +65,12 @@ class FNN(nn.Module):
         
         self.apply_lora = apply_lora
         if self.apply_lora: 
-            self.loralist = nn.ModuleList([LoRA(width, rank, std) for _ in range(depth)])
+            if rank_step == 0:
+                self.loralist = nn.ModuleList([LoRA(width, rank, std) for _ in range(depth)])
+            elif rank_step > 0:
+                self.loralist = nn.ModuleList([LoRA(width, min(rank + rank_step * l, width), std) for l in range(depth)])
+            else:
+                self.loralist = nn.ModuleList([LoRA(width, max(rank - rank_step * l, 0), std) for l in range(depth)])
         
     def forward(self, x):
         for l in range(self.depth):

@@ -29,6 +29,7 @@ class approx_fnn:
         tune_bias = 1,
         last_layers = 1,
         seed = 123,
+        rank_step = 0,
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -39,6 +40,10 @@ class approx_fnn:
         self.rank = rank
         self.use_bias = use_bias
         self.wandb = log_wandb
+        self.rank_step = rank_step
+        
+        if rank_step != 0 and method == 'ours':
+            raise NotImplementedError(f"rank_step != 0 is not supported for method = ours.")
         
         self.init_models(std, activation, init_mode)
         
@@ -104,6 +109,7 @@ class approx_fnn:
             use_bias = self.use_bias,
             apply_lora = True,
             activation = activation,
+            rank_step = self.rank_step,
         )
         self.frozen_m.eval()
         
@@ -349,7 +355,6 @@ class approx_fnn:
                         adapted_m.linearlist[l].bias.data = self.target_m.linearlist[i].bias.data - calibrate_bias
 
         return adapted_m
-                        
                     
     def eval(
         self,
@@ -768,6 +773,7 @@ if __name__ == '__main__':
     parser.add_argument('--tune_bias', type=int, default=1, choices = [0,1])
     parser.add_argument('--last_layers', type=int, default=1)
     parser.add_argument('--seed', type=int, default=123)
+    parser.add_argument('--rank_step', type=int, default=0)
     
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
@@ -818,6 +824,7 @@ if __name__ == '__main__':
             tune_bias = args.tune_bias,
             last_layers = args.last_layers,
             seed = args.seed,
+            rank_step = args.rank_step,
         )
 
     elif args.exp == 'tfn':

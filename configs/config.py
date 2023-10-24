@@ -12,6 +12,7 @@ width = 16
 pretrained_epochs = 1000
 pretrained_lr = 1e-3
 pretrained_level = 3
+init_mode = 'default'
 
 n_rep = 5
 
@@ -24,46 +25,117 @@ update_fnn_configs = []
 exp = 'fnn'
 
 for seed in range(n_rep):
-    for init_mode in ['default']: # , 'uniform_singular_values'
-        # matrix approximation 
-        target_depth = 1
-        frozen_depth = 2
-        use_bias = 0
-        activation = 'linear'
-        
-        for pretrained in [0, 1]:
+    # matrix approximation 
+    target_depth = 1
+    frozen_depth = 2
+    use_bias = 0
+    activation = 'linear'
+    
+    for pretrained in [0, 1]:
+        for rank in range(1, width + 1):
+            # sgd
+            method = 'sgd'
+            for lr in [1e-2, 1e-3, 1e-4]:
+                for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
+                    config = (
+                        width, 
+                        target_depth, 
+                        frozen_depth, 
+                        rank, 
+                        use_bias,
+                        activation, 
+                        std, 
+                        method, 
+                        batch_size, 
+                        n_epochs,
+                        lr,
+                        n_test,
+                        weight_decay,
+                        init_mode, 
+                        exp,
+                        wandb,
+                        pretrained,
+                        pretrained_epochs,
+                        pretrained_lr,
+                        pretrained_level,
+                        1, # tune_bias
+                        0, # last_layers
+                        seed,
+                        0, # rank_step
+                    )
+                    fnn_configs.append(config)
+                    
+            # ours
+            method = 'ours'
+            config = (
+                width, 
+                target_depth, 
+                frozen_depth, 
+                rank, 
+                use_bias,
+                activation, 
+                std, 
+                method, 
+                batch_size, 
+                n_epochs,
+                lr,
+                n_test,
+                weight_decay,
+                init_mode, 
+                exp,
+                wandb,
+                pretrained,
+                pretrained_epochs,
+                pretrained_lr,
+                pretrained_level,
+                1, # tune_bias
+                0, # last_layers
+                seed,
+                0, # rank_step
+            )
+            fnn_configs.append(config)
+                
+    #fnn approximation
+    use_bias = 1
+    activation = 'relu'
+    
+    for pretrained in [0, 1]:
+        for target_depth in [1, 2]:
+            frozen_depth = 2 * target_depth
             for rank in range(1, width + 1):
-                # sgd
-                method = 'sgd'
-                for lr in [1e-2, 1e-3, 1e-4]:
-                    for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
-                        config = (
-                            width, 
-                            target_depth, 
-                            frozen_depth, 
-                            rank, 
-                            use_bias,
-                            activation, 
-                            std, 
-                            method, 
-                            batch_size, 
-                            n_epochs,
-                            lr,
-                            n_test,
-                            weight_decay,
-                            init_mode, 
-                            exp,
-                            wandb,
-                            pretrained,
-                            pretrained_epochs,
-                            pretrained_lr,
-                            pretrained_level,
-                            1, # tune_bias
-                            0, # last_layers
-                            seed,
-                        )
-                        fnn_configs.append(config)
-                        
+                for tune_bias in [0, 1]:
+                    # sgd
+                    method = 'sgd'
+                    for lr in [1e-2, 1e-3, 1e-4]:
+                        for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
+                            config = (
+                                width, 
+                                target_depth, 
+                                frozen_depth, 
+                                rank, 
+                                use_bias,
+                                activation, 
+                                std, 
+                                method, 
+                                batch_size, 
+                                n_epochs,
+                                lr,
+                                n_test,
+                                weight_decay,
+                                init_mode, 
+                                exp,
+                                wandb,
+                                pretrained,
+                                pretrained_epochs,
+                                pretrained_lr,
+                                pretrained_level,
+                                tune_bias,
+                                0, # last_layers
+                                seed,
+                                0, # rank_step
+                            )
+                            fnn_configs.append(config)
+            
                 # ours
                 method = 'ours'
                 config = (
@@ -90,85 +162,16 @@ for seed in range(n_rep):
                     1, # tune_bias
                     0, # last_layers
                     seed,
+                    0, # rank_step
                 )
                 fnn_configs.append(config)
-                    
-        #fnn approximation
-        use_bias = 1
-        activation = 'relu'
-        
-        for pretrained in [0, 1]:
-            for target_depth in [1, 2]:
-                frozen_depth = 2 * target_depth
-                tdl = frozen_depth // target_depth
-                for rank in range(1, width + 1):
-                    for tune_bias in [0, 1]:
-                        # sgd
-                        method = 'sgd'
-                        for lr in [1e-2, 1e-3, 1e-4]:
-                            for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
-                                config = (
-                                    width, 
-                                    target_depth, 
-                                    frozen_depth, 
-                                    rank, 
-                                    use_bias,
-                                    activation, 
-                                    std, 
-                                    method, 
-                                    batch_size, 
-                                    n_epochs,
-                                    lr,
-                                    n_test,
-                                    weight_decay,
-                                    init_mode, 
-                                    exp,
-                                    wandb,
-                                    pretrained,
-                                    pretrained_epochs,
-                                    pretrained_lr,
-                                    pretrained_level,
-                                    tune_bias,
-                                    0, # last_layers
-                                    seed,
-                                )
-                                fnn_configs.append(config)
-                
-                    # ours
-                    method = 'ours'
-                    config = (
-                        width, 
-                        target_depth, 
-                        frozen_depth, 
-                        rank, 
-                        use_bias,
-                        activation, 
-                        std, 
-                        method, 
-                        batch_size, 
-                        n_epochs,
-                        lr,
-                        n_test,
-                        weight_decay,
-                        init_mode, 
-                        exp,
-                        wandb,
-                        pretrained,
-                        pretrained_epochs,
-                        pretrained_lr,
-                        pretrained_level,
-                        1, # tune_bias
-                        0, # last_layers
-                        seed,
-                    )
-                    fnn_configs.append(config)
 
     # final layers tuning
     target_depth = 1  
-    activation = 'relu'        
+    activation = 'relu'  
+    use_bias = 1      
     for pretrained in [0, 1]:
         frozen_depth = 2
-        tdl = frozen_depth // target_depth
         for last_layers in range(1, frozen_depth):
             method = 'flt'
             for lr in [1e-2, 1e-3, 1e-4]:
@@ -197,9 +200,51 @@ for seed in range(n_rep):
                         1, # tune_bias 
                         last_layers,
                         seed,
+                        0, # rank_step
                     )
                     fnn_configs.append(config)
-                            
+                    
+    # varied rank steps   
+    activation = 'relu'
+    use_bias = 1
+    target_depth = 2
+    frozen_depth = 4
+    method = 'sgd'
+    rank = 8
+    
+    for pretrained in [0,1]:
+        for rank_step in [-2, -1, 1, 2]:
+            for lr in [1e-2, 1e-3, 1e-4]:
+                for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
+                    config = (
+                        width, 
+                        target_depth, 
+                        frozen_depth, 
+                        rank, 
+                        use_bias,
+                        activation, 
+                        std, 
+                        method, 
+                        batch_size, 
+                        n_epochs,
+                        lr,
+                        n_test,
+                        weight_decay,
+                        init_mode, 
+                        exp,
+                        wandb,
+                        pretrained,
+                        pretrained_epochs,
+                        pretrained_lr,
+                        pretrained_level,
+                        1, # tune_bias 
+                        0, # last_layers
+                        seed,
+                        rank_step,
+                    )
+                    fnn_configs.append(config)
+    
+    
 # tfn
 exp = 'tfn'
 n_head = 2
