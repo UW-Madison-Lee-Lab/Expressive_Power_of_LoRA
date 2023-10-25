@@ -1,4 +1,26 @@
 import pandas as pd
+import numpy as np
+
+def get_rows(
+    df,
+    new_columns,
+    args_dict,
+):
+    idx = {}
+    for key, value in args_dict.items():
+        if key in new_columns and value == new_columns[key]:
+            idx[key] = (df[key] == value) | (df[key].isna())
+        else:
+            idx[key] = df[key] == value
+        
+    run_idx = np.ones_like(df['width'], dtype=bool)
+    for key, value in idx.items():
+        run_idx = run_idx & value
+    
+    # print(f"Selected {run_idx.sum()} runs!")
+    
+    run_df = df[run_idx].reset_index(drop=True)   
+    return run_df
 
 # newly added parameters in the experiments, name: default value 
 new_fnn_column = {'rank_step': 0}
@@ -31,10 +53,12 @@ config_fnn_df.columns = [
     *new_fnn_column.keys(),
 ]
 # drop the wandb column
+config_fnn_df = get_rows(config_fnn_df, new_fnn_column, {**new_fnn_column, 'exp': 'fnn'})
 config_fnn_df = config_fnn_df.drop(columns = ['wandb', *new_fnn_column.keys()])
 
 run_fnn_df = pd.read_pickle('../results/results.pkl')
-run_fnn_df = run_fnn_df[run_fnn_df.exp == 'fnn'][[
+run_fnn_df = get_rows(run_fnn_df, new_fnn_column, {**new_fnn_column, 'exp': 'fnn'})
+run_fnn_df = run_fnn_df[[
     'width', 
     'target_depth',
     'frozen_depth',
@@ -60,7 +84,9 @@ run_fnn_df = run_fnn_df[run_fnn_df.exp == 'fnn'][[
 ]]
 
 # Find additional configs
-rerun_fnn_df = config_fnn_df.merge(run_fnn_df, how='left', indicator=True).loc[lambda x : x['_merge']=='left_only'].drop('_merge', axis=1).reset_index(drop=True)
+# rerun_fnn_df = config_fnn_df.merge(run_fnn_df, how='left', indicator=True).loc[lambda x : x['_merge']=='left_only'].drop('_merge', axis=1).reset_index(drop=True)
+rerun_fnn_df = pd.concat([config_fnn_df, run_fnn_df, run_fnn_df]).drop_duplicates(keep=False)
+print(len(run_fnn_df))
 # insert column wandb consisting of ones after the column weight_decay
 rerun_fnn_df.insert(15, 'wandb', 1)
 for key, value in new_fnn_column.items():
