@@ -47,6 +47,8 @@ Run `python run_exp.py` with specified setting:
 * `--pretrained_level`: stop pretraining when the loss $\leq$ (initial loss)/`pretrained_level`;
 * `--tune_bias`: whether to tune bias or not in FNN experiments on LoRA;
 * `--last_layers`: the number final layers to update in the final layer tuning ('flt') experiments;
+* `--seed`: the random seed;
+* `--rank_step`: whether to increase the LoRA-rank per layer by `rank_step`, default as 0;
 * `--n_head`: the number of attention head $H$;
 * `--seq_length`: sequence length $N$;
 * `--wandb`: whether upload the results to wandb.
@@ -57,13 +59,13 @@ Now, we provide a few examples and the expected outputs.
 
 Command:
 
-```
+```bash
 python run_exp.py --width 8 --target_depth 1 --frozen_depth 2 --rank 3 --use_bias 1 --activation relu --std 0.25 --method ours --batch_size 256 --n_epochs 5000 --lr 0.0001 --n_test 5000 --weight_decay 0.01 --init_mode uniform_singular_values --exp fnn --wandb 0
 ```
 
 Output:
 
-```
+```bash
 Experiment Setting:
 | width: 8
 | target_depth: 1
@@ -86,6 +88,7 @@ Experiment Setting:
 | tune_bias: 1
 | last_layers: 1
 | seed: 123
+| rank_step: 0
 | n_head: 2
 | seq_length: 10
 | exp: fnn
@@ -98,13 +101,13 @@ Test loss: 0.0329
 
 Command:
 
-```
+```bash
 python run_exp.py --width 8 --target_depth 1 --frozen_depth 2 --rank 2 --use_bias 1 --activation relu --std 0.25 --method ours --batch_size 256 --n_epochs 5000 --lr 0.0001 --n_test 5000 --weight_decay 0.01 --init_mode uniform_singular_values --exp fnn --wandb 0 --pretrained 1 --pretrained_epochs 1000 --pretrained_lr .001 --pretrained_level 3
 ```
 
 Output:
 
-```
+```bash
 Experiment Setting:
 | width: 8
 | target_depth: 1
@@ -127,13 +130,14 @@ Experiment Setting:
 | tune_bias: 1
 | last_layers: 1
 | seed: 123
+| rank_step: 0
 | n_head: 2
 | seq_length: 10
 | exp: fnn
 | wandb: 0
 Pretraining...
-Loss of SGD: 0.0715:  19%|█████████████████████████████▍                                                                                                                            | 191/1000 [00:00<00:01, 669.65it/s]Pretraining finished at epoch 199.
-Loss of SGD: 0.0715:  20%|██████████████████████████████▋                                                                                                                           | 199/1000 [00:00<00:01, 634.73it/s]
+Loss of SGD: 0.0715:  14%|██████████████▍                                                                                            | 135/1000 [00:00<00:01, 670.50it/s]Pretraining finished at epoch 199.
+Loss of SGD: 0.0715:  20%|█████████████████████▎                                                                                     | 199/1000 [00:00<00:01, 671.65it/s]
 Singular values: tensor([0.7180, 0.6025, 0.3661, 0.3111, 0.2087, 0.1261, 0.0905, 0.0088])
 Test loss: 0.0041
 ```
@@ -142,13 +146,13 @@ Test loss: 0.0041
 
 Command:
 
-```
+```bash
 python run_exp.py --width 8 --target_depth 1 --rank 2  --n_head 2 --batch_size 256 --seq_length 10 --method sgd --n_epochs 800 --lr .001 --weight_decay .01 --exp tfn --wandb 0 --std 0.25 --n_test 5000
 ```
 
 Output:
 
-```
+```bash
 Experiment Setting:
 | width: 8
 | target_depth: 1
@@ -171,11 +175,12 @@ Experiment Setting:
 | tune_bias: 1
 | last_layers: 1
 | seed: 123
+| rank_step: 0
 | n_head: 2
 | seq_length: 10
 | exp: tfn
 | wandb: 0
-Loss of SGD: 2.1334: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 800/800 [00:13<00:00, 59.75it/s]
+Loss of SGD: 2.1334: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 800/800 [00:16<00:00, 48.79it/s]
 Validation loss: 2.1712
 Test loss: 2.2730
 ```
@@ -184,13 +189,13 @@ Test loss: 2.2730
 
 Command:
 
-```
+```bash
 python run_exp.py --width 8 --target_depth 1 --rank 2  --n_head 2 --batch_size 256 --seq_length 10 --method sgd --n_epochs 800 --lr .001 --weight_decay .01 --exp tfn --wandb 0 --std 0.25 --n_test 5000 --pretrained 1 --pretrained_epochs 1000 --pretrained_lr .002 --pretrained_level 3
 ```
 
 Output:
 
-```
+```bash
 Experiment Setting:
 | width: 8
 | target_depth: 1
@@ -213,14 +218,15 @@ Experiment Setting:
 | tune_bias: 1
 | last_layers: 1
 | seed: 123
+| rank_step: 0
 | n_head: 2
 | seq_length: 10
 | exp: tfn
 | wandb: 0
 Pretraining...
-Loss of SGD: 2.2482:  11%|█████████████████                                                                                                                                          | 110/1000 [00:02<00:14, 60.26it/s]Pretraining finished at epoch 110.
-Loss of SGD: 2.2482:  11%|█████████████████                                                                                                                                          | 110/1000 [00:02<00:16, 54.25it/s]
-Loss of SGD: 1.8310: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 800/800 [00:14<00:00, 55.35it/s]
+Loss of SGD: 2.2482:  10%|███████████▎                                                                                                | 105/1000 [00:02<00:17, 51.11it/s]Pretraining finished at epoch 110.
+Loss of SGD: 2.2482:  11%|███████████▉                                                                                                | 110/1000 [00:02<00:16, 53.82it/s]
+Loss of SGD: 1.8310: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 800/800 [00:14<00:00, 54.11it/s]
 Validation loss: 1.8559
 Test loss: 1.9348
 ```
@@ -229,13 +235,13 @@ Test loss: 1.9348
 
 Command:
 
-```
+```bash
 python run_exp.py --width 8 --target_depth 1 --frozen_depth 2 --rank 2 --use_bias 1 --activation relu --std 0.25 --method flt --batch_size 256 --n_epochs 5000 --lr 0.0001 --n_test 5000 --weight_decay 0.01 --init_mode uniform_singular_values --exp fnn --wandb 0 --pretrained 1 --pretrained_epochs 1000 --pretrained_lr .001 --pretrained_level 3 --last_layers 1
 ```
 
 Output:
 
-```
+```bash
 Experiment Setting:
 | width: 8
 | target_depth: 1
@@ -258,14 +264,15 @@ Experiment Setting:
 | tune_bias: 1
 | last_layers: 1
 | seed: 123
+| rank_step: 0
 | n_head: 2
 | seq_length: 10
 | exp: fnn
 | wandb: 0
 Pretraining...
-Loss of SGD: 0.0715:  16%|████████████████████████▋                                                                                                                                 | 160/1000 [00:00<00:01, 784.41it/s]Pretraining finished at epoch 199.
-Loss of SGD: 0.0715:  20%|██████████████████████████████▋                                                                                                                           | 199/1000 [00:00<00:01, 785.33it/s]
-Loss of SGD: 0.0523: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5000/5000 [00:04<00:00, 1145.20it/s]
+Loss of SGD: 0.0715:  15%|███████████████▌                                                                                           | 146/1000 [00:00<00:01, 725.42it/s]Pretraining finished at epoch 199.
+Loss of SGD: 0.0715:  20%|█████████████████████▎                                                                                     | 199/1000 [00:00<00:01, 729.73it/s]
+Loss of SGD: 0.0523: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████| 5000/5000 [00:04<00:00, 1023.34it/s]
 Validation loss: 0.0554
 Test loss: 0.0545
 ```
@@ -277,6 +284,8 @@ In `configs/`, we have `config.py` for specifying the group of experiments to ru
 If you want to further add additional experiment configurations, you just need to add the corresponding code into `config.py`, and run `python config.py`. The additional configurations will be saved into `additional_fnn_configs.csv` and `additional_tfn_configs.csv`.
 
 If you changed the code of the experiment functions, and want to rerun some experiments, you can specify the configurations to be rerun in `config.py`. The corresponding configurations will be stored into `update_fnn_configs.csv` and `update_tfn_configs.csv` by running `python config.py`.
+
+If there are some failed jobs, you can run `python failed_config.py` to collect the corresponding configurations, and they are saved in `rerun_fnn_configs.csv` and `rerun_tfn.csv`.
 
 ## Results Visualization
 
