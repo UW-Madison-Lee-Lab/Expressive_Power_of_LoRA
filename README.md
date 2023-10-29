@@ -29,7 +29,7 @@ Run `python run_exp.py` with specified setting:
 * `--std`: standard deviation for generating the weight matrices;
 * `--method`: three methods
 
-  * 'ours': computing LoRA adapters using our construnction in proof;
+  * 'ours': computing LoRA adapters using our construction in proof;
   * 'sgd': computing LoRA adapters using gradient update;
   * 'flt': updating the final layers using gradient update;
 * `--batch_size`: (i) batch size used for gradient update, and (ii) number of inputs for selecting appropriate large bias in 'ours' (our construction) in the FNN cases;
