@@ -538,7 +538,7 @@ class WandbCallback(TrainerCallback):
             self._wandb.init(
                 project=os.getenv("WANDB_PROJECT", "lora-huggingface"),
                 config=combined_dict,
-                name=run_name,
+                # name=run_name,
                 reinit=reinit,
                 entity='lee-lab-uw-madison',
                 **init_args,
