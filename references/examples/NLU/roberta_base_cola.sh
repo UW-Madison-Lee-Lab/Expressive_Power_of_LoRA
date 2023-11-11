@@ -1,4 +1,5 @@
-export num_gpus=2
+# export num_gpus=2
+export num_gpus=1
 export CUBLAS_WORKSPACE_CONFIG=":16:8" # https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
 export PYTHONHASHSEED=0
 path=$(pwd)
