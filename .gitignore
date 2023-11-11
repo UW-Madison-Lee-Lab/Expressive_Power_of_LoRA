@@ -36,6 +36,7 @@ figures/
 **/log_condor
 **/datasets
 **/.ipynb_checkpoints/
+**/real_exp
 
 
 
