@@ -14,7 +14,7 @@ examples/text-classification/run_glue.py \
 --max_seq_length 512 \
 --per_device_train_batch_size 16 \
 --learning_rate 4e-4 \
---num_train_epochs 80 \
+--num_train_epochs 1 \
 --output_dir $output_dir/model \
 --overwrite_output_dir \
 --logging_steps 10 \
@@ -26,4 +26,9 @@ examples/text-classification/run_glue.py \
 --lora_r 8 \
 --lora_alpha 16 \
 --seed 0 \
---weight_decay 0.1
+--weight_decay 0.1 \
+--pretrained 1
+
+# --per_device_train_batch_size 32
+# --pretrained 1
+# --num_train_epochs 80
