@@ -17,7 +17,7 @@ examples/text-classification/run_glue.py \
 --per_device_train_batch_size 16 \
 --learning_rate 4e-4 \
 --num_train_epochs 1 \
---output_dir $output_dir/model \
+--output_dir $output_dir/model \23
 --overwrite_output_dir \
 --logging_steps 10 \
 --logging_dir $output_dir/log \

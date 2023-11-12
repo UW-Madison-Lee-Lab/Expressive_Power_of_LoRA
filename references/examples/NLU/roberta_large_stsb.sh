@@ -17,6 +17,7 @@ examples/text-classification/run_glue.py \
 --learning_rate 3e-4 \
 --num_train_epochs 10 \
 --output_dir $output_dir/model \
+--overwrite_output_dir \
 --logging_steps 10 \
 --logging_dir $output_dir/log \
 --evaluation_strategy epoch \
