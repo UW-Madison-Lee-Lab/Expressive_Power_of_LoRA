@@ -27,7 +27,6 @@ figures/
 *.sub
 
 **/wandb
-**/models
 **/wandb_sweep
 **/log_ccc
 **/trials

@@ -2,6 +2,7 @@
 export num_gpus=1
 export CUBLAS_WORKSPACE_CONFIG=":16:8" # https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
 export PYTHONHASHSEED=0
+export PYTHONPATH="$(pwd)/src:$PYTHONPATH"  
 path=$(pwd)
 root_dir="${path%/*/*/*}"
 output_dir=$root_dir/results/real_exp/NLU/cola
@@ -28,7 +29,7 @@ examples/text-classification/run_glue.py \
 --lora_alpha 16 \
 --seed 0 \
 --weight_decay 0.1 \
---pretrained 1
+--pretrained 0
 
 # --per_device_train_batch_size 32
 # --pretrained 1

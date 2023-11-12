@@ -378,10 +378,13 @@ def main():
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
+
     else:
         model = AutoModelForSequenceClassification.from_config(
             config=config,
         )
+                
+        
 
     trainable_params = []
     if model_args.apply_lora:
