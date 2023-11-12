@@ -10,164 +10,228 @@ for rank in [2,4,6,8,10,12]:
         
         task = 'cola'
         num_gpus = 4
+        cuda_capability_min = 7.5
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'mnli'
         num_gpus = 2
+        cuda_capability_min = 8.0
+        cuda_capability_max = 8.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'mrpc'
         num_gpus = 2
+        cuda_capability_min = 8.0
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'qnli'
         num_gpus = 4
+        cuda_capability_min = 8.0
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'qqp'
         num_gpus = 2
+        cuda_capability_min = 8.0
+        cuda_capability_max = 8.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'rte'
         num_gpus = 4
+        cuda_capability_min = 8.0
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'sst2'
         num_gpus = 2
+        cuda_capability_min = 8.0
+        cuda_capability_max = 8.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'stsb'
         num_gpus = 2
+        cuda_capability_min = 8.0
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         model = 'roberta-large'
         
         task = 'cola'
         num_gpus = 2
+        cuda_capability_min = 7.5
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'mnli'
         num_gpus = 2
+        cuda_capability_min = 8.0
+        cuda_capability_max = 8.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'mrpc'
         num_gpus = 2
+        cuda_capability_min = 7.5
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'qnli'
         num_gpus = 2
+        cuda_capability_min = 8.0
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'qqp'
         num_gpus = 2
+        cuda_capability_min = 8.0
+        cuda_capability_max = 8.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'rte'
         num_gpus = 4
+        cuda_capability_min = 7.5
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'sst2'
         num_gpus = 4
+        cuda_capability_min = 8.0
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
         task = 'stsb'
         num_gpus = 2
+        cuda_capability_min = 7.5
+        cuda_capability_max = 9.0
         configs.append([
             num_gpus,
             task,
             model,
             pretrained,
             rank,
+            cuda_capability_min,
+            cuda_capability_max,
         ])
         
 config_df = pd.DataFrame(configs)
