@@ -9,7 +9,6 @@ output_dir=$root_dir/results/real_exp/NLU/mrpc
 python -m torch.distributed.launch --nproc_per_node=$num_gpus \
 examples/text-classification/run_glue.py \
 --model_name_or_path roberta-base \
---lora_path ./roberta_base_lora_mnli.bin \
 --task_name mrpc \
 --do_train \
 --do_eval \
