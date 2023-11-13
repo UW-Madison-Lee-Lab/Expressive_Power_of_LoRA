@@ -9,8 +9,8 @@ for rank in [2,4,6,8,10,12]:
         model = 'roberta-base'
         
         task = 'cola'
-        num_gpus = 4
-        cuda_capability_min = 7.5
+        num_gpus = 1
+        cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'short'
         configs.append([
@@ -25,7 +25,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'mnli'
-        num_gpus = 2
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 8.0
         job_length = 'medium'
@@ -41,7 +41,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'mrpc'
-        num_gpus = 2
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'short'
@@ -57,7 +57,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'qnli'
-        num_gpus = 4
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'short'
@@ -73,7 +73,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'qqp'
-        num_gpus = 2
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 8.0
         job_length = 'medium'
@@ -89,7 +89,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'rte'
-        num_gpus = 4
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'short'
@@ -105,7 +105,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'sst2'
-        num_gpus = 2
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 8.0
         job_length = 'medium'
@@ -121,7 +121,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'stsb'
-        num_gpus = 2
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'short'
@@ -139,8 +139,8 @@ for rank in [2,4,6,8,10,12]:
         model = 'roberta-large'
         
         task = 'cola'
-        num_gpus = 2
-        cuda_capability_min = 7.5
+        num_gpus = 1
+        cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'short'
         configs.append([
@@ -155,7 +155,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'mnli'
-        num_gpus = 2
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 8.0
         job_length = 'medium'
@@ -171,8 +171,8 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'mrpc'
-        num_gpus = 2
-        cuda_capability_min = 7.5
+        num_gpus = 1
+        cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'short'
         configs.append([
@@ -187,7 +187,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'qnli'
-        num_gpus = 2
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'medium'
@@ -203,7 +203,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'qqp'
-        num_gpus = 2
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 8.0
         job_length = 'medium'
@@ -219,8 +219,8 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'rte'
-        num_gpus = 4
-        cuda_capability_min = 7.5
+        num_gpus = 1
+        cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'short'
         configs.append([
@@ -235,7 +235,7 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'sst2'
-        num_gpus = 4
+        num_gpus = 1
         cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'short'
@@ -251,8 +251,8 @@ for rank in [2,4,6,8,10,12]:
         ])
         
         task = 'stsb'
-        num_gpus = 2
-        cuda_capability_min = 7.5
+        num_gpus = 1
+        cuda_capability_min = 8.0
         cuda_capability_max = 9.0
         job_length = 'short'
         configs.append([
