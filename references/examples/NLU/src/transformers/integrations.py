@@ -518,10 +518,12 @@ class WandbCallback(TrainerCallback):
         if self._wandb is None:
             return
         self._initialized = True
+        
         if state.is_world_process_zero:
             logger.info(
                 'Automatic Weights & Biases logging enabled, to disable set os.environ["WANDB_DISABLED"] = "true"'
             )
+            
             combined_dict = {**args.to_sanitized_dict()}
 
             if hasattr(model, "config") and model.config is not None:
@@ -538,7 +540,6 @@ class WandbCallback(TrainerCallback):
             self._wandb.init(
                 project=os.getenv("WANDB_PROJECT", "lora-huggingface"),
                 config=combined_dict,
-                # name=run_name,
                 reinit=reinit,
                 entity='lee-lab-uw-madison',
                 **init_args,

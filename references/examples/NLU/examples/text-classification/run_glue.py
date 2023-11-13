@@ -147,9 +147,6 @@ class ModelArguments:
     model_name_or_path: str = field(
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
-    pretrained: Optional[bool] = field(
-        default=True, metadata={"help": "Whether to load pretrained model or not."},
-    )
     config_name: Optional[str] = field(
         default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
     )
@@ -233,7 +230,7 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
+        
     torch.use_deterministic_algorithms(training_args.use_deterministic_algorithms)
     logger.info("use_deterministic_algorithms: " + str(torch.are_deterministic_algorithms_enabled()))
 
@@ -369,7 +366,7 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
     
-    if model_args.pretrained:
+    if training_args.pretrained:
         model = AutoModelForSequenceClassification.from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -543,6 +540,7 @@ def main():
         data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8)
     else:
         data_collator = None
+
 
     # Initialize our Trainer
     trainer = Trainer(

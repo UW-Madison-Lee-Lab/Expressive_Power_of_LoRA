@@ -304,6 +304,9 @@ class TrainingArguments:
             )
         },
     )
+    
+    pretrained: bool = field(default=True, metadata={"help": "Whether to use pretrained model."})   
+    model: str = field(default='roberta-base', metadata={"help": "Model name or path."})
 
     do_train: bool = field(default=False, metadata={"help": "Whether to run training."})
     do_eval: bool = field(default=None, metadata={"help": "Whether to run eval on the dev set."})
