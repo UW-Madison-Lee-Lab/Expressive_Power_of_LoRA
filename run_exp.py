@@ -30,7 +30,7 @@ class approx_fnn:
         last_layers = 1,
         seed = 123,
         rank_step = 0,
-        criterion = 'mse', # ['mse', 'cross_entropy']
+        task = 'regression', # ['regression', 'classification']
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -47,14 +47,15 @@ class approx_fnn:
             raise NotImplementedError(f"rank_step != 0 is not supported for method = ours.")
         
         self.init_models(std, activation, init_mode)
+        self.task = task
         
-        if criterion == 'mse':
+        if self.task == 'regression':
             self.criterion = nn.MSELoss()
-        elif criterion == 'cross_entropy':
-            self.W_out = torch.randn((self.width, 2))
-            self.criterion = lambda x,y: nn.CrossEntropyLoss()(torch.matmul(x, self.W_out), torch.matmul(y, self.W_out))
+        elif self.task == 'classification':
+            self.W_out = torch.randn((2,self.width))
+            self.criterion = lambda x,y: nn.CrossEntropyLoss()(torch.matmul(x, self.W_out.T), torch.matmul(y, self.W_out.T))
         else:
-            raise NotImplementedError(f"We only support mse and cross_entropy for parameter criterion, and {criterion} is not supported.")
+            raise NotImplementedError(f"We only support regression and classification for parameter task, and {self.task} is not supported.")
             
         if pretrained:
             self.pretrained(
@@ -170,7 +171,7 @@ class approx_fnn:
             
             y_pred = pretrained_m(x_train)
         
-            train_loss = self.criterion(y_pred, y_train)
+            train_loss = nn.MSELoss()(y_pred, y_train)
 
             if i == 0: 
                 init_loss = train_loss.item()
@@ -390,14 +391,15 @@ class approx_fnn:
         else:
             print(f"Test loss: {self.test_loss:.4f}")
             
-        y_test_binary = torch.max(torch.matmul(y_test, self.W_out), dim = 1)[1]
-        y_pred_binary = torch.max(torch.matmul(y_pred, self.W_out), dim = 1)[1]
-        test_accuracy_binary = y_test_binary.eq(y_pred_binary).sum().item() / n_test
-        
-        if self.wandb:
-            wandb.log({'test_bin_acc': test_accuracy_binary})
-        else:
-            print(f"Test binary classification accuracy: {test_accuracy_binary:.4f}")    
+        if self.task == 'classification':
+            y_test_binary = torch.max(torch.matmul(y_test, self.W_out.T), dim = 1)[1]
+            y_pred_binary = torch.max(torch.matmul(y_pred, self.W_out.T), dim = 1)[1]
+            test_accuracy_binary = y_test_binary.eq(y_pred_binary).sum().item() / n_test
+            
+            if self.wandb:
+                wandb.log({'test_bin_acc': test_accuracy_binary})
+            else:
+                print(f"Test binary classification accuracy: {test_accuracy_binary:.4f}")    
 class approx_tfn:
     def __init__(
         self,
@@ -419,7 +421,7 @@ class approx_tfn:
         pretrained_lr = 1e-3,
         pretrained_level = 3,
         seed = 123,
-        criterion = 'mse', # ['mse', 'cross_entropy']
+        task = 'regression', # ['regression', 'classification']
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -433,14 +435,15 @@ class approx_tfn:
         self.wandb = log_wandb
         
         self.init_models(std)
+        self.task = task
         
-        if criterion == 'mse':
+        if self.task == 'regression':
             self.criterion = nn.MSELoss()
-        elif criterion == 'cross_entropy':
-            self.W_out = torch.randn((self.width, 2))
+        elif self.task == 'classification':
+            self.W_out = torch.randn((2, self.embed_dim))
             self.criterion = lambda X,Y: nn.CrossEntropyLoss()(torch.matmul(self.W_out, X), torch.matmul(self.W_out, Y))
         else:
-            raise NotImplementedError(f"We only support mse and cross_entropy for parameter criterion, and {criterion} is not supported.")
+            raise NotImplementedError(f"We only support regression and classification for parameter task, and {self.task} is not supported.")
             
         if pretrained:
             self.pretrained(
@@ -538,7 +541,7 @@ class approx_tfn:
             Y_train.requires_grad = False
             
             Y_pred = pretrained_m(X_train)
-            train_loss = self.criterion(Y_pred, Y_train)
+            train_loss = nn.MSELoss()(Y_pred, Y_train)
             
             if i == 0:
                 init_loss = train_loss.item()
@@ -775,14 +778,15 @@ class approx_tfn:
         else:
             print(f"Test loss: {self.test_loss:.4f}")
             
-        y_test_binary = torch.max(torch.matmul(self.W_out, Y_test), dim = 1)[1]
-        y_pred_binary = torch.max(torch.matmul(self.W_out, Y_pred), dim = 1)[1]
-        test_accuracy_binary = y_test_binary.eq(y_pred_binary).sum().item() / n_test
-        
-        if self.wandb:
-            wandb.log({'test_bin_acc': test_accuracy_binary})
-        else:
-            print(f"Test binary classification accuracy: {test_accuracy_binary:.4f}")    
+        if self.task == 'classification':
+            y_test_binary = torch.max(torch.matmul(self.W_out, Y_test), dim = 1)[1]
+            y_pred_binary = torch.max(torch.matmul(self.W_out, Y_pred), dim = 1)[1]
+            test_accuracy_binary = y_test_binary.eq(y_pred_binary).sum().item() / n_test
+            
+            if self.wandb:
+                wandb.log({'test_bin_acc': test_accuracy_binary})
+            else:
+                print(f"Test binary classification accuracy: {test_accuracy_binary:.4f}")    
 
     
 if __name__ == '__main__':
@@ -809,7 +813,7 @@ if __name__ == '__main__':
     parser.add_argument('--last_layers', type=int, default=1)
     parser.add_argument('--seed', type=int, default=123)
     parser.add_argument('--rank_step', type=int, default=0)
-    parser.add_argument('--criterion', type=str, default='mse', choices = ['mse', 'cross_entropy'])
+    parser.add_argument('--task', type=str, default='regression', choices = ['classification', 'regression'])
     
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
@@ -861,7 +865,7 @@ if __name__ == '__main__':
             last_layers = args.last_layers,
             seed = args.seed,
             rank_step = args.rank_step,
-            criterion = args.criterion,
+            task = args.task,
         )
 
     elif args.exp == 'tfn':
@@ -889,7 +893,7 @@ if __name__ == '__main__':
             pretrained_lr = args.pretrained_lr,
             pretrained_level = args.pretrained_level,
             seed = args.seed,
-            criterion = args.criterion,
+            task = args.task,
         )
 
     if args.wandb:
