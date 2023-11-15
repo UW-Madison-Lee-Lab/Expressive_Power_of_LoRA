@@ -335,9 +335,9 @@ class CallbackHandler(TrainerCallback):
     def on_init_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl):
         return self.call_event("on_init_end", args, state, control)
 
-    def on_train_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl):
+    def on_train_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
         control.should_training_stop = False
-        return self.call_event("on_train_begin", args, state, control)
+        return self.call_event("on_train_begin", args, state, control, **kwargs)
 
     def on_train_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl):
         return self.call_event("on_train_end", args, state, control)
@@ -366,9 +366,9 @@ class CallbackHandler(TrainerCallback):
         control.should_save = False
         return self.call_event("on_save", args, state, control)
 
-    def on_log(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, logs):
+    def on_log(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, logs, **kwargs):
         control.should_log = False
-        return self.call_event("on_log", args, state, control, logs=logs)
+        return self.call_event("on_log", args, state, control, logs=logs, **kwargs)
 
     def on_prediction_step(self, args: TrainingArguments, state: TrainerState, control: TrainerControl):
         return self.call_event("on_prediction_step", args, state, control)

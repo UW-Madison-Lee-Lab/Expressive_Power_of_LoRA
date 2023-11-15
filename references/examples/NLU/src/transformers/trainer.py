@@ -249,6 +249,7 @@ class Trainer:
         compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
+        wandb_args: Optional[Dict[str, Any]] = None,
     ):
         if args is None:
             output_dir = "tmp_trainer"
@@ -260,6 +261,7 @@ class Trainer:
         self.hp_name = None
         self.deepspeed = None
         self.is_in_train = False
+        self.wandb_args = wandb_args
 
         # memory metrics - must set up as early as possible
         self._memory_tracker = TrainerMemoryTracker(self.args.skip_memory_metrics)
@@ -1014,7 +1016,7 @@ class Trainer:
         self._total_flos = self.state.total_flos
         model.zero_grad()
 
-        self.control = self.callback_handler.on_train_begin(self.args, self.state, self.control)
+        self.control = self.callback_handler.on_train_begin(self.args, self.state, self.control, wandb_args = self.wandb_args)
 
         # Skip the first epochs_trained epochs to get the random state of the dataloader at the right point.
         if not self.args.ignore_data_skip:
@@ -1415,7 +1417,7 @@ class Trainer:
 
         output = {**logs, **{"step": self.state.global_step}}
         self.state.log_history.append(output)
-        self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs)
+        self.control = self.callback_handler.on_log(self.args, self.state, self.control, logs, wandb_args = self.wandb_args)
 
     def _prepare_inputs(self, inputs: Dict[str, Union[torch.Tensor, Any]]) -> Dict[str, Union[torch.Tensor, Any]]:
         """

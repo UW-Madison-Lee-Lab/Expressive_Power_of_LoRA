@@ -230,7 +230,8 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-        
+
+           
     torch.use_deterministic_algorithms(training_args.use_deterministic_algorithms)
     logger.info("use_deterministic_algorithms: " + str(torch.are_deterministic_algorithms_enabled()))
 
@@ -551,6 +552,7 @@ def main():
         compute_metrics=compute_metrics,
         tokenizer=tokenizer,
         data_collator=data_collator,
+        wandb_args = {'model': model_args.model_name_or_path},
     )
 
     # Training

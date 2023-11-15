@@ -306,7 +306,6 @@ class TrainingArguments:
     )
     
     pretrained: bool = field(default=True, metadata={"help": "Whether to use pretrained model."})   
-    model: str = field(default='roberta-base', metadata={"help": "Model name or path."})
 
     do_train: bool = field(default=False, metadata={"help": "Whether to run training."})
     do_eval: bool = field(default=None, metadata={"help": "Whether to run eval on the dev set."})
@@ -784,6 +783,7 @@ class TrainingArguments:
         for k, v in d.items():
             if isinstance(v, Enum):
                 d[k] = v.value
+                print(f'v: {v}')
             if isinstance(v, list) and len(v) > 0 and isinstance(v[0], Enum):
                 d[k] = [x.value for x in v]
         return d

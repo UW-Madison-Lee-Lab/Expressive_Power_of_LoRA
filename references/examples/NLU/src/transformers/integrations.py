@@ -523,12 +523,16 @@ class WandbCallback(TrainerCallback):
             logger.info(
                 'Automatic Weights & Biases logging enabled, to disable set os.environ["WANDB_DISABLED"] = "true"'
             )
-            
+                
             combined_dict = {**args.to_sanitized_dict()}
 
             if hasattr(model, "config") and model.config is not None:
                 model_config = model.config.to_dict()
                 combined_dict = {**model_config, **combined_dict}
+                
+            if 'wandb_args' in kwargs and kwargs['wandb_args'] is not None:
+                combined_dict = {**kwargs['wandb_args'], **combined_dict}
+                
             trial_name = state.trial_name
             init_args = {}
             if trial_name is not None:
@@ -768,10 +772,10 @@ class MLflowCallback(TrainerCallback):
 
 
 INTEGRATION_TO_CALLBACK = {
-    "azure_ml": AzureMLCallback,
-    "comet_ml": CometCallback,
-    "mlflow": MLflowCallback,
-    "tensorboard": TensorBoardCallback,
+    # "azure_ml": AzureMLCallback,
+    # "comet_ml": CometCallback,
+    # "mlflow": MLflowCallback,
+    # "tensorboard": TensorBoardCallback,
     "wandb": WandbCallback,
 }
 
