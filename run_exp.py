@@ -31,7 +31,6 @@ class approx_fnn:
         seed = 123,
         rank_step = 0,
         task = 'regression', # ['regression', 'classification']
-        in_out_distribution = 'in', # ['in', 'out']
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -43,7 +42,6 @@ class approx_fnn:
         self.use_bias = use_bias
         self.wandb = log_wandb
         self.rank_step = rank_step
-        self.in_out_distribution = in_out_distribution
         
         if rank_step != 0 and method == 'ours':
             raise NotImplementedError(f"rank_step != 0 is not supported for method = ours.")
@@ -91,6 +89,7 @@ class approx_fnn:
         
         # evaluate the adapted model
         self.eval(adapted_m, n_test = n_test)
+        
         
     def init_models(
         self,
@@ -167,13 +166,8 @@ class approx_fnn:
         # training
         for i in iter_obj:
             # generate random input from some Gaussian distribution
-            if self.in_out_distribution == 'in':
-                x_train = torch.randn(batch_size, self.width) 
-            elif self.in_out_distribution == 'out':
-                x_train = torch.rand(batch_size, self.width)
-            else:
-                raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
-            
+            x_train = torch.randn(batch_size, self.width) 
+
             y_train = self.target_m(x_train).detach()
             y_train.requires_grad = False
             
@@ -202,13 +196,8 @@ class approx_fnn:
         pretrained_m.eval()
         
         # generate random input from some Gaussian distribution
-        if self.in_out_distribution == 'in':
-            x_val = torch.randn(batch_size, self.width)
-        elif self.in_out_distribution == 'out':
-            x_val = torch.rand(batch_size, self.width) 
-        else:
-            raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
-        
+        x_val = torch.randn(batch_size, self.width)
+
         y_val = self.target_m(x_val).detach()
         y_val.requires_grad = False
         
@@ -236,13 +225,8 @@ class approx_fnn:
         # finetuning
         for i in iter_obj:
             # generate random input from some Gaussian distribution
-            if self.in_out_distribution == 'in':
-                x_train = torch.randn(batch_size, self.width) 
-            elif self.in_out_distribution == 'out':
-                x_train = torch.rand(batch_size, self.width)
-            else:
-                raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
-            
+            x_train = torch.randn(batch_size, self.width) 
+
             y_train = self.target_m(x_train).detach()
             y_train.requires_grad = False
             
@@ -264,13 +248,8 @@ class approx_fnn:
         adapted_m.eval()
         
         # generate random input from some Gaussian distribution
-        if self.in_out_distribution == 'in':
-            x_val =  torch.randn(batch_size, self.width)
-        elif self.in_out_distribution == 'out':
-            x_val = torch.rand(batch_size, self.width)
-        else:
-            raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
-        
+        x_val =  torch.randn(batch_size, self.width)
+
         y_val = self.target_m(x_val).detach()
         y_val.requires_grad = False
         
@@ -407,6 +386,7 @@ class approx_fnn:
         
         adapted_model.eval()
         
+        # in-distribution test set
         # generate random input from some Gaussian distribution
         x_test = torch.randn(n_test, self.width) 
         y_test = self.target_m(x_test).detach()
@@ -430,6 +410,33 @@ class approx_fnn:
                 wandb.log({'test_bin_acc': test_accuracy_binary})
             else:
                 print(f"Test binary classification accuracy: {test_accuracy_binary:.4f}")    
+                
+        # out-of-distribution test set
+        # generate random input from some Gaussian distribution
+        x_test = 5*torch.randn(n_test, self.width) 
+        y_test = self.target_m(x_test).detach()
+        y_test.requires_grad = False
+        
+        y_pred = adapted_model(x_test)
+        loss = self.criterion(y_pred, y_test)
+        
+        self.test_loss = loss.item()
+        if self.wandb:
+            wandb.log({'test_shift_loss': self.test_loss})
+        else:
+            print(f"Test loss on shifted test set: {self.test_loss:.4f}")
+            
+        if self.task == 'classification':
+            y_test_binary = torch.max(torch.matmul(y_test, self.W_out.T), dim = 1)[1]
+            y_pred_binary = torch.max(torch.matmul(y_pred, self.W_out.T), dim = 1)[1]
+            test_accuracy_binary = y_test_binary.eq(y_pred_binary).sum().item() / n_test
+            
+            if self.wandb:
+                wandb.log({'test_shift_bin_acc': test_accuracy_binary})
+            else:
+                print(f"Test binary classification accuracy on shifted test set: {test_accuracy_binary:.4f}")    
+                
+        
 class approx_tfn:
     def __init__(
         self,
@@ -452,7 +459,6 @@ class approx_tfn:
         pretrained_level = 3,
         seed = 123,
         task = 'regression', # ['regression', 'classification']
-        in_out_distribution = 'in', # ['in', 'out']
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -464,7 +470,6 @@ class approx_tfn:
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.wandb = log_wandb
-        self.in_out_distribution = in_out_distribution
         
         self.init_models(std)
         self.task = task
@@ -568,13 +573,8 @@ class approx_tfn:
         # training
         for i in iter_obj:
             # generate random input from some Gaussian distribution
-            if self.in_out_distribution == 'in':
-                X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
-            elif self.in_out_distribution == 'out':
-                X_train = torch.rand(batch_size, self.embed_dim, self.seq_length)
-            else:
-                raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
-                
+            X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
+
             Y_train = self.target_m(X_train).detach()
             Y_train.requires_grad = False
             
@@ -601,13 +601,8 @@ class approx_tfn:
         # validation
         pretrained_m.eval()
         
-        if self.in_out_distribution == 'in':
-            X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
-        elif self.in_out_distribution == 'out':
-            X_val = torch.rand(batch_size, self.embed_dim, self.seq_length)
-        else:
-            raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
-            
+        X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
+
         Y_val = self.target_m(X_val).detach()
         Y_val.requires_grad = False
         
@@ -660,13 +655,8 @@ class approx_tfn:
         # finetuning
         for i in iter_obj:
             # generate random input from some Gaussian distribution
-            if self.in_out_distribution == 'in':
-                X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
-            elif self.in_out_distribution == 'out':
-                X_train = torch.rand(batch_size, self.embed_dim, self.seq_length) 
-            else:
-                raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
-                
+            X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
+
             Y_train = self.target_m(X_train).detach()
             Y_train.requires_grad = False
             
@@ -686,12 +676,7 @@ class approx_tfn:
         # validation
         adapted_m.eval()
         
-        if self.in_out_distribution == 'in':
-            X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
-        elif self.in_out_distribution == 'out':
-            X_val = torch.rand(batch_size, self.embed_dim, self.seq_length)
-        else:
-            raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
+        X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
 
         Y_val = self.target_m(X_val).detach()
         Y_val.requires_grad = False
@@ -846,6 +831,32 @@ class approx_tfn:
             else:
                 print(f"Test binary classification accuracy: {test_accuracy_binary:.4f}")    
 
+        # out-of-distribution test set
+        # generate random input from some Gaussian distribution
+        X_test = 5*torch.randn(n_test, self.embed_dim, self.seq_length)
+        Y_test = self.target_m(X_test).detach()
+        Y_test.requires_grad = False
+        
+        Y_pred = adapted_model(X_test)
+        loss = self.criterion(Y_pred, Y_test)
+        
+        self.test_loss = loss.item()
+        
+        if self.wandb:
+            wandb.log({'test_shift_loss': self.test_loss})
+        else:
+            print(f"Test loss on shifted test set: {self.test_loss:.4f}")
+            
+        if self.task == 'classification':
+            y_test_binary = torch.max(torch.matmul(self.W_out, Y_test), dim = 1)[1]
+            y_pred_binary = torch.max(torch.matmul(self.W_out, Y_pred), dim = 1)[1]
+            test_accuracy_binary = y_test_binary.eq(y_pred_binary).sum().item() / n_test
+            
+            if self.wandb:
+                wandb.log({'test_shift_bin_acc': test_accuracy_binary})
+            else:
+                print(f"Test binary classification accuracy on shifted test set: {test_accuracy_binary:.4f}")    
+        
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -872,7 +883,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=123)
     parser.add_argument('--rank_step', type=int, default=0)
     parser.add_argument('--task', type=str, default='regression', choices = ['classification', 'regression'])
-    
+
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
 
