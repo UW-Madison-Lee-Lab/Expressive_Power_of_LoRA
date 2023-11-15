@@ -31,6 +31,7 @@ class approx_fnn:
         seed = 123,
         rank_step = 0,
         task = 'regression', # ['regression', 'classification']
+        in_out_distribution = 'in', # ['in', 'out']
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -42,6 +43,7 @@ class approx_fnn:
         self.use_bias = use_bias
         self.wandb = log_wandb
         self.rank_step = rank_step
+        self.in_out_distribution = in_out_distribution
         
         if rank_step != 0 and method == 'ours':
             raise NotImplementedError(f"rank_step != 0 is not supported for method = ours.")
@@ -165,7 +167,13 @@ class approx_fnn:
         # training
         for i in iter_obj:
             # generate random input from some Gaussian distribution
-            x_train = torch.randn(batch_size, self.width) 
+            if self.in_out_distribution == 'in':
+                x_train = torch.randn(batch_size, self.width) 
+            elif self.in_out_distribution == 'out':
+                x_train = torch.rand(batch_size, self.width)
+            else:
+                raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
+            
             y_train = self.target_m(x_train).detach()
             y_train.requires_grad = False
             
@@ -192,7 +200,15 @@ class approx_fnn:
             
         # validation
         pretrained_m.eval()
-        x_val =  torch.randn(batch_size, self.width)
+        
+        # generate random input from some Gaussian distribution
+        if self.in_out_distribution == 'in':
+            x_val = torch.randn(batch_size, self.width)
+        elif self.in_out_distribution == 'out':
+            x_val = torch.rand(batch_size, self.width) 
+        else:
+            raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
+        
         y_val = self.target_m(x_val).detach()
         y_val.requires_grad = False
         
@@ -220,7 +236,13 @@ class approx_fnn:
         # finetuning
         for i in iter_obj:
             # generate random input from some Gaussian distribution
-            x_train = torch.randn(batch_size, self.width)
+            if self.in_out_distribution == 'in':
+                x_train = torch.randn(batch_size, self.width) 
+            elif self.in_out_distribution == 'out':
+                x_train = torch.rand(batch_size, self.width)
+            else:
+                raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
+            
             y_train = self.target_m(x_train).detach()
             y_train.requires_grad = False
             
@@ -240,7 +262,15 @@ class approx_fnn:
             
         # validation
         adapted_m.eval()
-        x_val =  torch.randn(batch_size, self.width)
+        
+        # generate random input from some Gaussian distribution
+        if self.in_out_distribution == 'in':
+            x_val =  torch.randn(batch_size, self.width)
+        elif self.in_out_distribution == 'out':
+            x_val = torch.rand(batch_size, self.width)
+        else:
+            raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
+        
         y_val = self.target_m(x_val).detach()
         y_val.requires_grad = False
         
@@ -422,6 +452,7 @@ class approx_tfn:
         pretrained_level = 3,
         seed = 123,
         task = 'regression', # ['regression', 'classification']
+        in_out_distribution = 'in', # ['in', 'out']
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -433,6 +464,7 @@ class approx_tfn:
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.wandb = log_wandb
+        self.in_out_distribution = in_out_distribution
         
         self.init_models(std)
         self.task = task
@@ -536,7 +568,13 @@ class approx_tfn:
         # training
         for i in iter_obj:
             # generate random input from some Gaussian distribution
-            X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
+            if self.in_out_distribution == 'in':
+                X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
+            elif self.in_out_distribution == 'out':
+                X_train = torch.rand(batch_size, self.embed_dim, self.seq_length)
+            else:
+                raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
+                
             Y_train = self.target_m(X_train).detach()
             Y_train.requires_grad = False
             
@@ -562,7 +600,14 @@ class approx_tfn:
             
         # validation
         pretrained_m.eval()
-        X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
+        
+        if self.in_out_distribution == 'in':
+            X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
+        elif self.in_out_distribution == 'out':
+            X_val = torch.rand(batch_size, self.embed_dim, self.seq_length)
+        else:
+            raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
+            
         Y_val = self.target_m(X_val).detach()
         Y_val.requires_grad = False
         
@@ -615,7 +660,13 @@ class approx_tfn:
         # finetuning
         for i in iter_obj:
             # generate random input from some Gaussian distribution
-            X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
+            if self.in_out_distribution == 'in':
+                X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
+            elif self.in_out_distribution == 'out':
+                X_train = torch.rand(batch_size, self.embed_dim, self.seq_length) 
+            else:
+                raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
+                
             Y_train = self.target_m(X_train).detach()
             Y_train.requires_grad = False
             
@@ -634,7 +685,14 @@ class approx_tfn:
             
         # validation
         adapted_m.eval()
-        X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
+        
+        if self.in_out_distribution == 'in':
+            X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
+        elif self.in_out_distribution == 'out':
+            X_val = torch.rand(batch_size, self.embed_dim, self.seq_length)
+        else:
+            raise NotImplementedError(f"We only support in and out for parameter in_out_distribution, and {self.in_out_distribution} is not supported.")
+
         Y_val = self.target_m(X_val).detach()
         Y_val.requires_grad = False
         

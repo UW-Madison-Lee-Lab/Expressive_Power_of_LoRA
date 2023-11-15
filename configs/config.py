@@ -101,14 +101,18 @@ for seed in range(n_rep):
     use_bias = 1
     activation = 'relu'
     
-    for task in ['regression', 'classification']:
-        for pretrained in [0, 1]:
-            for target_depth in [1, 2]:
-                frozen_depth = 2 * target_depth
-                for rank in range(1, width + 1):
+    
+    for pretrained in [0, 1]:
+        for target_depth in [1, 2]:
+            frozen_depth = 2 * target_depth
+            for rank in range(1, width + 1):
+                for task in ['regression', 'classification']:
+                    if task == 'classification' and pretrained == 0: continue
+                    
+                    # sgd
+                    method = 'sgd'
                     for tune_bias in [0, 1]:
-                        # sgd
-                        method = 'sgd'
+                        if task == 'classification' and tune_bias == 0: continue
                         for lr in [1e-2, 1e-3, 1e-4]:
                             for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
                                 config = (
