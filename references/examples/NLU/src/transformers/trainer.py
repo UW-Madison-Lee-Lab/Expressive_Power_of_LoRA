@@ -1194,7 +1194,7 @@ class Trainer:
 
         self._memory_tracker.stop_and_update_metrics(metrics)
 
-        return TrainOutput(self.state.global_step, self._total_loss_scalar / self.state.global_step, metrics)
+        return TrainOutput(self.state.global_step, self._total_loss_scalar / max(self.state.global_step, 1), metrics)
 
     def _maybe_log_save_evaluate(self, tr_loss, model, trial, epoch):
         if self.control.should_log:
