@@ -235,6 +235,8 @@ class approx_fnn:
         iter_obj = tqdm(range(n_epochs))
         # finetuning
         for i in iter_obj:
+            adapted_m.train()
+            
             # generate random input from some Gaussian distribution
             x_train = torch.randn(batch_size, self.width) 
 
@@ -533,7 +535,6 @@ class approx_tfn:
         pretrained_lr = 1e-3,
         pretrained_level = 3,
         seed = 123,
-        task = 'regression', # ['regression', 'classification']
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -547,15 +548,11 @@ class approx_tfn:
         self.wandb = log_wandb
         
         self.init_models(std)
-        self.task = task
+        self.criterion = nn.MSELoss()
         
-        if self.task == 'regression':
-            self.criterion = nn.MSELoss()
-        elif self.task == 'classification':
-            self.criterion = lambda X,Y: nn.CrossEntropyLoss()(X, Y)
-        else:
-            raise NotImplementedError(f"We only support regression and classification for parameter task, and {self.task} is not supported.")
-            
+        self.best_val = None
+        self.n_test = n_test
+
         if pretrained:
             self.pretrained(
                 pretrained_epochs,
@@ -577,8 +574,9 @@ class approx_tfn:
         else:
             raise NotImplementedError(f"We only support ours and sgd for parameter method, and {method} is not supported.")
         
-        # evaluate the adapted model
-        self.eval(adapted_m, n_test = n_test)
+        if method == 'ours':
+            # evaluate the adapted model
+            self.eval(adapted_m, n_test = n_test)
             
         
     def init_models(
@@ -653,7 +651,7 @@ class approx_tfn:
             Y_train.requires_grad = False
             
             Y_pred = pretrained_m(X_train)
-            train_loss = nn.MSELoss()(Y_pred, Y_train)
+            train_loss = self.criterion(Y_pred, Y_train)
             
             if i == 0:
                 init_loss = train_loss.item()
@@ -700,7 +698,6 @@ class approx_tfn:
         set_seed(self.seed)
         
         adapted_m = deepcopy(self.frozen_m)
-        adapted_m.train()
         
         # specify the lora adapter as the parameters to be optimized
         params = []
@@ -728,6 +725,8 @@ class approx_tfn:
         iter_obj = tqdm(range(n_epochs))
         # finetuning
         for i in iter_obj:
+            adapted_m.train()
+            
             # generate random input from some Gaussian distribution
             X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
 
@@ -747,21 +746,24 @@ class approx_tfn:
             # update tqdm description with current loss
             iter_obj.set_description(f"Loss of SGD: {self.train_loss.item():.4f}")
             
-        # validation
-        adapted_m.eval()
-        
-        X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
-
-        Y_val = self.target_m(X_val).detach()
-        Y_val.requires_grad = False
-        
-        Y_pred = adapted_m(X_val)
-        self.val_loss = self.criterion(Y_pred, Y_val)
-        
-        if self.wandb:
-            wandb.log({'val_loss': self.val_loss.item()})
-        else:
-            print(f"Validation loss: {self.val_loss.item():.4f}")
+            # validation
+            adapted_m.eval()
+            
+            X_val = torch.randn(batch_size, self.embed_dim, self.seq_length)
+            Y_val = self.target_m(X_val).detach()
+            Y_val.requires_grad = False
+            
+            Y_pred = adapted_m(X_val)
+            self.val_loss = self.criterion(Y_pred, Y_val)
+            
+            if self.wandb:
+                wandb.log({'val_loss': self.val_loss.item()})
+            else:
+                print(f"Validation loss: {self.val_loss.item():.4f}")
+                
+            if self.best_val is None or self.val_loss.item() < self.best_val:
+                self.best_val = self.val_loss.item()
+                self.eval(adapted_m, self.n_test)
             
         return adapted_m
     
@@ -882,6 +884,8 @@ class approx_tfn:
     ):
         set_seed(self.seed)
         
+        adapted_model.eval()
+        
         # generated random input from some Gaussian distribution
         X_test = torch.randn(n_test, self.embed_dim, self.seq_length)
         Y_test = self.target_m(X_test).detach()
@@ -896,16 +900,6 @@ class approx_tfn:
             wandb.log({'test_loss': self.test_loss})
         else:
             print(f"Test loss: {self.test_loss:.4f}")
-            
-        if self.task == 'classification':
-            y_test_binary = torch.max(Y_test, dim = 1)[1]
-            y_pred_binary = torch.max(Y_pred, dim = 1)[1]
-            test_accuracy_binary = y_test_binary.eq(y_pred_binary).sum().item() / n_test
-            
-            if self.wandb:
-                wandb.log({'test_bin_acc': test_accuracy_binary})
-            else:
-                print(f"Test binary classification accuracy: {test_accuracy_binary:.4f}")    
 
         # out-of-distribution test set
         # generate random input from some Gaussian distribution
@@ -923,17 +917,6 @@ class approx_tfn:
         else:
             print(f"Test loss on shifted test set: {self.test_loss:.4f}")
             
-        if self.task == 'classification':
-            y_test_binary = torch.max(Y_test, dim = 1)[1]
-            y_pred_binary = torch.max(Y_pred, dim = 1)[1]
-            test_accuracy_binary = y_test_binary.eq(y_pred_binary).sum().item() / n_test
-            
-            if self.wandb:
-                wandb.log({'test_shift_bin_acc': test_accuracy_binary})
-            else:
-                print(f"Test binary classification accuracy on shifted test set: {test_accuracy_binary:.4f}")    
-        
-    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--width', type=int, default=4)
@@ -1038,7 +1021,6 @@ if __name__ == '__main__':
             pretrained_lr = args.pretrained_lr,
             pretrained_level = args.pretrained_level,
             seed = args.seed,
-            task = args.task,
         )
 
     if args.wandb:
