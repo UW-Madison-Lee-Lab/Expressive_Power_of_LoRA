@@ -93,6 +93,62 @@ for seed in range(n_rep):
                 task,
             )
             configs.append(config)
+            
+            
+for seed in range(n_rep):
+    for target_depth in [1,2]:
+        frozen_depth = 2 * target_depth
+        
+        config = (
+            width, 
+            target_depth, 
+            frozen_depth, 
+            0, # rank, 
+            use_bias,
+            activation, 
+            std, 
+            'ours', # method, 
+            batch_size, 
+            0, # n_epochs
+            lr,
+            n_test,
+            weight_decay,
+            init_mode, 
+            exp,
+            wandb,
+            pretrained,
+            pretrained_epochs,
+            pretrained_lr,
+            pretrained_level,
+            0, # tune_bias,
+            0, # last_layers
+            seed,
+            0, # rank_step
+            task,
+        )
+        configs.append(config)
 
-config_df = pd.DataFrame(configs)
-config_df.to_csv('classification_config.csv', index=False, header=False)
+
+new_classification_configs = pd.DataFrame(configs)
+
+if os.path.exists('classification_config.csv'):
+    origin_classification_configs = pd.read_csv('classification_config.csv', header=None)
+    
+    # Find additional configs
+    additional_classification_configs = new_classification_configs.merge(origin_classification_configs, how='left', indicator=True).loc[lambda x : x['_merge']=='left_only'].drop('_merge', axis=1).reset_index(drop=True)
+    additional_classification_configs.to_csv('additional_classification_configs.csv', index=False, header=False)
+    
+    while 1:
+        # Ask the user if they want to overwrite the original configs
+        user_input = input("Do you want to overwrite the original classification configs? (y/n): ")
+        if user_input.lower() in ['y', 'yes']:
+            new_classification_configs.to_csv('classification_config.csv', index=False, header=False)
+            print('Data overwritten!')
+            break
+        elif user_input.lower() in ['n', 'no']:
+            print('Sure!')
+            break
+        else:
+            print("Invalid input!")
+else:
+    new_classification_configs.to_csv('classification_config.csv', index=False, header=False)
