@@ -19,63 +19,97 @@ use_bias = 1
 activation = 'relu'
 
 exp = 'fnn'
-task = 'classification'
 
 n_rep = 5
 
 configs = []
 
-for seed in range(n_rep):
-    for target_depth in [1,2]:
-        frozen_depth = 2 * target_depth
-        for rank in range(1, width+1):
+for task in ['classification', 'binary_classification']:
+    for seed in range(n_rep):
+        for target_depth in [1,2]:
+            frozen_depth = 2 * target_depth
+            for rank in range(1, width+1):
+                
+                # sgd
+                method = 'sgd'
+                for lr in [1e-2, 1e-3, 1e-4]:
+                    for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
+                        config = (
+                            width, 
+                            target_depth, 
+                            frozen_depth, 
+                            rank, 
+                            use_bias,
+                            activation, 
+                            std, 
+                            method, 
+                            batch_size, 
+                            n_epochs,
+                            lr,
+                            n_test,
+                            weight_decay,
+                            init_mode, 
+                            exp,
+                            wandb,
+                            pretrained,
+                            pretrained_epochs,
+                            pretrained_lr,
+                            pretrained_level,
+                            tune_bias,
+                            0, # last_layers
+                            seed,
+                            0, # rank_step
+                            task,
+                        )
+                        configs.append(config)
+                        
+                # ours
+                method = 'ours'
+                config = (
+                    width, 
+                    target_depth, 
+                    frozen_depth, 
+                    rank, 
+                    use_bias,
+                    activation, 
+                    std, 
+                    method, 
+                    batch_size, 
+                    n_epochs,
+                    lr,
+                    n_test,
+                    weight_decay,
+                    init_mode, 
+                    exp,
+                    wandb,
+                    pretrained,
+                    pretrained_epochs,
+                    pretrained_lr,
+                    pretrained_level,
+                    1, # tune_bias
+                    0, # last_layers
+                    seed,
+                    0, # rank_step
+                    task,
+                )
+                configs.append(config)
+                
+                
+    for seed in range(n_rep):
+        for target_depth in [1,2]:
+            frozen_depth = 2 * target_depth
             
-            # sgd
-            method = 'sgd'
-            for lr in [1e-2, 1e-3, 1e-4]:
-                for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
-                    config = (
-                        width, 
-                        target_depth, 
-                        frozen_depth, 
-                        rank, 
-                        use_bias,
-                        activation, 
-                        std, 
-                        method, 
-                        batch_size, 
-                        n_epochs,
-                        lr,
-                        n_test,
-                        weight_decay,
-                        init_mode, 
-                        exp,
-                        wandb,
-                        pretrained,
-                        pretrained_epochs,
-                        pretrained_lr,
-                        pretrained_level,
-                        tune_bias,
-                        0, # last_layers
-                        seed,
-                        0, # rank_step
-                        task,
-                    )
-                    configs.append(config)
-                    
-            # ours
-            method = 'ours'
             config = (
                 width, 
                 target_depth, 
                 frozen_depth, 
-                rank, 
+                0, # rank, 
                 use_bias,
                 activation, 
                 std, 
-                method, 
+                'ours', # method, 
                 batch_size, 
-                n_epochs,
+                0, # n_epochs
                 lr,
                 n_test,
                 weight_decay,
@@ -86,47 +120,13 @@ for seed in range(n_rep):
                 pretrained_epochs,
                 pretrained_lr,
                 pretrained_level,
-                1, # tune_bias
+                0, # tune_bias,
                 0, # last_layers
                 seed,
                 0, # rank_step
                 task,
             )
             configs.append(config)
-            
-            
-for seed in range(n_rep):
-    for target_depth in [1,2]:
-        frozen_depth = 2 * target_depth
-        
-        config = (
-            width, 
-            target_depth, 
-            frozen_depth, 
-            0, # rank, 
-            use_bias,
-            activation, 
-            std, 
-            'ours', # method, 
-            batch_size, 
-            0, # n_epochs
-            lr,
-            n_test,
-            weight_decay,
-            init_mode, 
-            exp,
-            wandb,
-            pretrained,
-            pretrained_epochs,
-            pretrained_lr,
-            pretrained_level,
-            0, # tune_bias,
-            0, # last_layers
-            seed,
-            0, # rank_step
-            task,
-        )
-        configs.append(config)
 
 
 new_classification_configs = pd.DataFrame(configs)

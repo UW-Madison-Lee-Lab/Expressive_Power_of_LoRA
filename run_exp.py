@@ -30,7 +30,7 @@ class approx_fnn:
         last_layers = 1,
         seed = 123,
         rank_step = 0,
-        task = 'regression', # ['regression', 'classification']
+        task = 'regression', # ['regression', 'classification', 'binary_classification']
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -58,8 +58,14 @@ class approx_fnn:
             self.criterion = nn.MSELoss()
         elif self.task == 'classification':
             self.criterion = lambda x,y: nn.CrossEntropyLoss()(x, y)
+        elif self.task == 'binary_classification':
+            block1 = torch.ones(width//2, 1)
+            block2 = torch.ones(width-width//2, 1)
+            self.W_out = torch.block_diag(block1, block2)
+            
+            self.criterion = lambda y_pred,y_true: nn.CrossEntropyLoss()(y_pred @ self.W_out, y_true @ self.W_out)
         else:
-            raise NotImplementedError(f"We only support regression and classification for parameter task, and {self.task} is not supported.")
+            raise NotImplementedError(f"We only support regression, classification, and binary_classification for parameter task, and {self.task} is not supported.")
             
         if pretrained:
             self.pretrained(
@@ -256,12 +262,12 @@ class approx_fnn:
                 if self.best_val is None or val_output < self.best_val:
                     self.best_val = val_output
                     self.test(adapted_m)
-            elif self.task == 'classification':
+            elif self.task in ['classification', 'binary_classification']:
                 if self.best_val is None or val_output > self.best_val:
                     self.best_val = val_output
                     self.test(adapted_m)
             else:
-                raise NotImplementedError(f"We only support regression and classification for parameter task, and {self.task} is not supported.")
+                raise NotImplementedError(f"We only support regression, classification, and binary classification for parameter task, and {self.task} is not supported.")
                 
         return adapted_m
         
@@ -412,8 +418,20 @@ class approx_fnn:
                 print(f"Val classification accuracy: {val_accuracy:.4f}")     
                 
             return val_accuracy
-        else:
+        elif self.task == 'binary_classification':
+            y_val = torch.max(y_val @ self.W_out, dim = 1)[1]
+            y_pred = torch.max(y_pred @ self.W_out, dim = 1)[1]
+            val_accuracy = y_val.eq(y_pred).sum().item() / self.n_val
+            
+            if self.wandb:
+                wandb.log({'val_acc': val_accuracy})
+            else:
+                print(f"Val binary classification accuracy: {val_accuracy:.4f}")     
+            return val_accuracy
+        elif self.task == 'regression':
             return self.val_loss.item()
+        else:
+            raise NotImplementedError(f"We only support regression, classification, and binary classification for parameter task, and {self.task} is not supported.")
                     
     def test(
         self,
@@ -447,6 +465,15 @@ class approx_fnn:
                 wandb.log({'test_acc': test_accuracy})
             else:
                 print(f"Test classification accuracy: {test_accuracy:.4f}")    
+        elif self.task == 'binary_classification':
+            y_test = torch.max(y_test @ self.W_out, dim = 1)[1]
+            y_pred = torch.max(y_pred @ self.W_out, dim = 1)[1]
+            test_accuracy = y_test.eq(y_pred).sum().item() / self.n_test
+            
+            if self.wandb:
+                wandb.log({'test_acc': test_accuracy})
+            else:
+                print(f"Test binary classification accuracy: {test_accuracy:.4f}")
                 
         # out-of-distribution test set
         # generate random input from some Gaussian distribution
@@ -473,6 +500,16 @@ class approx_fnn:
                 wandb.log({'test_shift_acc': test_accuracy})
             else:
                 print(f"Test classification accuracy on shifted test set: {test_accuracy:.4f}")    
+        elif self.task == 'binary_classification':
+            y_test = torch.max(y_test @ self.W_out, dim = 1)[1]
+            y_pred = torch.max(y_pred @ self.W_out, dim = 1)[1]
+            
+            test_accuracy = y_test.eq(y_pred).sum().item() / self.n_test
+            
+            if self.wandb:
+                wandb.log({'test_shift_acc': test_accuracy})
+            else:
+                print(f"Test binary classification accuracy on shifted test set: {test_accuracy:.4f}")
                 
         
 class approx_tfn:
@@ -921,7 +958,7 @@ if __name__ == '__main__':
     parser.add_argument('--last_layers', type=int, default=1)
     parser.add_argument('--seed', type=int, default=123)
     parser.add_argument('--rank_step', type=int, default=0)
-    parser.add_argument('--task', type=str, default='regression', choices = ['classification', 'regression'])
+    parser.add_argument('--task', type=str, default='regression', choices = ['classification', 'regression', 'binary_classification'])
 
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
