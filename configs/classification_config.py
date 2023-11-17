@@ -127,6 +127,45 @@ for task in ['classification', 'binary_classification', 'regression']:
                 task,
             )
             configs.append(config)
+            
+task = 'regression'
+target_depth = 1
+
+for seed in range(n_rep):
+    for frozen_depth in range(2, 12, 2):
+        for rank in range(1, width+1):
+            # sgd
+            method = 'sgd'
+            for lr in [1e-2, 1e-3, 1e-4]:
+                for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
+                    config = (
+                        width, 
+                        target_depth, 
+                        frozen_depth, 
+                        rank, 
+                        use_bias,
+                        activation, 
+                        std, 
+                        method, 
+                        batch_size, 
+                        n_epochs,
+                        lr,
+                        n_test,
+                        weight_decay,
+                        init_mode, 
+                        exp,
+                        wandb,
+                        pretrained,
+                        pretrained_epochs,
+                        pretrained_lr,
+                        pretrained_level,
+                        tune_bias,
+                        0, # last_layers
+                        seed,
+                        0, # rank_step
+                        task,
+                    )
+                    configs.append(config)
 
 
 new_classification_configs = pd.DataFrame(configs)
