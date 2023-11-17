@@ -5,7 +5,7 @@ api = wandb.Api(timeout=300)
 # Project is specified by <entity/project-name>
 runs = api.runs("lee-lab-uw-madison/lora-expressive-power")
 
-summary_list, config_list, name_list = [], [], []
+summary_list, config_list, name_list, id_list = [], [], [], []
 for run in runs: 
     # .summary contains the output keys/values for metrics like accuracy.
     #  We call ._json_dict to omit large files 
@@ -17,11 +17,13 @@ for run in runs:
     
     # .name is the human-readable name of the run.
     name_list.append(run.name)
+    id_list.append(run.id)
 
 runs_df = pd.DataFrame({
     "summary": summary_list,
     "config": config_list,
-    "name": name_list
+    "name": name_list,
+    'id': id_list,
     })
 
 runs_df.to_csv("project.csv")
@@ -29,7 +31,8 @@ runs_df.to_csv("project.csv")
 df = pd.concat([
     pd.DataFrame(summary_list),
     pd.DataFrame(config_list),
-    pd.DataFrame({'run_name':name_list})
+    pd.DataFrame({'run_name':name_list}),
+    pd.DataFrame({'run_id':id_list}),
 ], axis = 1)
 
 df.to_pickle('results.pkl')

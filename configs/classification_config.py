@@ -24,7 +24,7 @@ n_rep = 5
 
 configs = []
 
-for task in ['classification', 'binary_classification']:
+for task in ['classification', 'binary_classification', 'regression']:
     for seed in range(n_rep):
         for target_depth in [1,2]:
             frozen_depth = 2 * target_depth
