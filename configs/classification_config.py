@@ -132,7 +132,7 @@ task = 'regression'
 target_depth = 1
 
 for seed in range(n_rep):
-    for frozen_depth in range(2, 12, 2):
+    for frozen_depth in range(2, 16, 2):
         for rank in range(1, width+1):
             # sgd
             method = 'sgd'
