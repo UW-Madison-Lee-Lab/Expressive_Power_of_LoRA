@@ -23,8 +23,6 @@ n_rep = 5
 task = 'regression'
 best_epoch = 0
 
-method = 'sgd'
-
 configs = []
 
 for seed in range(n_rep):
@@ -32,6 +30,7 @@ for seed in range(n_rep):
         frozen_depth = 2 * target_depth
         n_train = 400 * target_depth
         for rank in range(1, width+1):
+            method = 'sgd'
             for lr in [1e-2, 1e-3, 1e-4]:
                 for weight_decay in [0, 1e-4, 1e-3, 1e-2]:
                     config = (
@@ -64,6 +63,39 @@ for seed in range(n_rep):
                         best_epoch,
                     )
                     configs.append(config)
+                    
+            # ours
+            method = 'ours'
+            config = (
+                width, 
+                target_depth, 
+                frozen_depth, 
+                rank, 
+                use_bias,
+                activation, 
+                std, 
+                method, 
+                batch_size, 
+                n_epochs,
+                lr,
+                n_test,
+                weight_decay,
+                init_mode, 
+                exp,
+                wandb,
+                pretrained,
+                pretrained_epochs,
+                pretrained_lr,
+                pretrained_level,
+                1, # tune_bias
+                0, # last_layers
+                seed,
+                0, # rank_step
+                task,
+                'inf', # n_train
+                0, # best_epoch
+            )
+            configs.append(config)
     
 new_generalization_configs = pd.DataFrame(configs)
 
