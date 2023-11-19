@@ -254,11 +254,11 @@ class approx_fnn:
             self.train_loss.backward()
             opt.step()
             
-            # update tqdm description with current loss
-            iter_obj.set_description(f"Loss of SGD: {self.train_loss.item():.4f}")
-            
             # validation
             val_output = self.val(adapted_m)
+            
+            # update tqdm description with current loss
+            iter_obj.set_description(f"Train loss: {self.train_loss.item():.4f} | Val output: {val_output:.4f}")
                 
             if self.task == 'regression':
                 if self.best_val is None or val_output < self.best_val:
@@ -425,10 +425,7 @@ class approx_fnn:
             y_pred = torch.max(y_pred @ self.W_out, dim = 1)[1]
             val_accuracy = y_val.eq(y_pred).sum().item() / self.n_val
             
-            if self.wandb:
-                wandb.log({'val_acc': val_accuracy})
-            else:
-                print(f"Val binary classification accuracy: {val_accuracy:.4f}")     
+            if self.wandb: wandb.log({'val_acc': val_accuracy})  
             return val_accuracy
         elif self.task == 'regression':
             return self.val_loss.item()
@@ -535,6 +532,8 @@ class approx_tfn:
         pretrained_lr = 1e-3,
         pretrained_level = 3,
         seed = 123,
+        better_optim = 0, # [0, 1]
+        dropout = 0.1
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -547,11 +546,12 @@ class approx_tfn:
         self.seq_length = seq_length
         self.wandb = log_wandb
         
-        self.init_models(std)
+        self.init_models(std, better_optim, dropout)
         self.criterion = nn.MSELoss()
         
         self.best_val = None
         self.n_test = n_test
+        self.better_optim = better_optim
 
         if pretrained:
             self.pretrained(
@@ -564,6 +564,8 @@ class approx_tfn:
         # perform finetune
         if method == 'ours':
             adapted_m = self.adapt_ours()
+            if self.best_optim:
+                raise ValueError(f"best_optim = 1 is not supported for method = ours.")
         elif method == 'sgd':
             adapted_m = self.adapt_sgd(
                 n_epochs,
@@ -582,6 +584,8 @@ class approx_tfn:
     def init_models(
         self,
         std,
+        better_optim,
+        dropout,
     ):
         # randomly initialize the target model
         self.target_m = TFN(
@@ -601,6 +605,8 @@ class approx_tfn:
             rank = self.rank,
             std = std,
             apply_lora = True,
+            better_optim = better_optim,
+            dropout = dropout,
         )
         self.frozen_m.eval()
         
@@ -708,6 +714,11 @@ class approx_tfn:
                 params.append({'params': attention_lora[i].lora_A, 'lr': lr, 'weight_decay': weight_decay})
                 params.append({'params': attention_lora[i].lora_B, 'lr': lr, 'weight_decay': weight_decay})
                 
+            # bias in feedforward layers
+            feed_forward = adapted_m.tfblist[l].feed_forward
+            params.append({'params': feed_forward[0].bias, 'lr': lr, 'weight_decay': weight_decay})
+            params.append({'params': feed_forward[1].bias, 'lr': lr, 'weight_decay': weight_decay})
+                
             # lora on the feedforward layers
             if l == self.depth - 1:
                 W2_lora = adapted_m.tfblist[l].W2_lora
@@ -743,9 +754,6 @@ class approx_tfn:
             self.train_loss.backward()
             opt.step()
             
-            # update tqdm description with current loss
-            iter_obj.set_description(f"Loss of SGD: {self.train_loss.item():.4f}")
-            
             # validation
             adapted_m.eval()
             
@@ -756,10 +764,10 @@ class approx_tfn:
             Y_pred = adapted_m(X_val)
             self.val_loss = self.criterion(Y_pred, Y_val)
             
-            if self.wandb:
-                wandb.log({'val_loss': self.val_loss.item()})
-            else:
-                print(f"Validation loss: {self.val_loss.item():.4f}")
+            if self.wandb: wandb.log({'val_loss': self.val_loss.item()})
+            
+            # update tqdm description with current loss
+            iter_obj.set_description(f"Train loss: {self.train_loss.item():.4f} | Val loss: {self.val_loss.item():.4f}")
                 
             if self.best_val is None or self.val_loss.item() < self.best_val:
                 self.best_val = self.val_loss.item()
@@ -898,8 +906,6 @@ class approx_tfn:
         
         if self.wandb:
             wandb.log({'test_loss': self.test_loss})
-        else:
-            print(f"Test loss: {self.test_loss:.4f}")
 
         # out-of-distribution test set
         # generate random input from some Gaussian distribution
@@ -914,8 +920,6 @@ class approx_tfn:
         
         if self.wandb:
             wandb.log({'test_shift_loss': self.test_loss})
-        else:
-            print(f"Test loss on shifted test set: {self.test_loss:.4f}")
             
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -945,7 +949,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
-
+    parser.add_argument('--better_optim', type=int, default=0, choices = [0,1])
+    parser.add_argument('--dropout', type=float, default=0.1)
+    
     parser.add_argument('--exp', type=str, default='fnn', choices = ['fnn', 'tfn'])
     parser.add_argument('--wandb', type=int, default=0, choices = [0,1])
     
@@ -1021,6 +1027,8 @@ if __name__ == '__main__':
             pretrained_lr = args.pretrained_lr,
             pretrained_level = args.pretrained_level,
             seed = args.seed,
+            better_optim = args.better_optim,
+            dropout = args.dropout,
         )
 
     if args.wandb:

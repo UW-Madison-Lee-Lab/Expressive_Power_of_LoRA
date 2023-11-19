@@ -105,14 +105,12 @@ class MultiheadAttention(nn.Module):
         self.embed_dim = embed_dim
         self.n_head = n_head
         
-        # initialize the weight matrices for all heads
-        # Wq, Wk, Wv, Wo: (embed_dim, embed_dim)
-        self.Wq, self.Wk, self.Wv, self.Wo = [], [], [], []
-        for _ in range(n_head):
-            self.Wq.append(nn.Parameter(torch.randn(embed_dim, embed_dim)))
-            self.Wk.append(nn.Parameter(torch.randn(embed_dim, embed_dim)))
-            self.Wv.append(nn.Parameter(torch.randn(embed_dim, embed_dim)))
-            self.Wo.append(nn.Parameter(torch.randn(embed_dim, embed_dim)))
+        # Initialize the weight matrices for all heads
+        # Wq, Wk, Wv, Wo: (embed_dim, embed_dim) for each head
+        self.Wq = nn.ParameterList([nn.Parameter(torch.randn(embed_dim, embed_dim)) for _ in range(n_head)])
+        self.Wk = nn.ParameterList([nn.Parameter(torch.randn(embed_dim, embed_dim)) for _ in range(n_head)])
+        self.Wv = nn.ParameterList([nn.Parameter(torch.randn(embed_dim, embed_dim)) for _ in range(n_head)])
+        self.Wo = nn.ParameterList([nn.Parameter(torch.randn(embed_dim, embed_dim)) for _ in range(n_head)])
             
         self.apply_lora = apply_lora
         if self.apply_lora:
@@ -165,7 +163,6 @@ class MultiheadAttention(nn.Module):
         
         # batch_size * embed_dim * seq_length
         return result
-        
 class TFB(nn.Module):
     def __init__(
         self, 
@@ -175,6 +172,8 @@ class TFB(nn.Module):
         std,
         apply_lora,
         is_last,
+        better_optim = 0,
+        dropout = 0.1,
     ):
         super().__init__()
         
@@ -189,10 +188,17 @@ class TFB(nn.Module):
             std,
             apply_lora,
         )
+    
+        
         self.feed_forward = nn.ModuleList([
             nn.Linear(embed_dim, embed_dim),
             nn.Linear(embed_dim, embed_dim),
         ])
+        
+        self.better_optim = better_optim
+        if self.better_optim:
+            self.norm = nn.LayerNorm(embed_dim)
+            self.dropout = nn.Dropout(dropout)
         
         self.apply_lora = apply_lora
         self.is_last = is_last
@@ -215,6 +221,10 @@ class TFB(nn.Module):
         # multi-head attention: (batch_size, embed_dim, seq_length)
         attn_output = self.attention(x)
         
+        if self.better_optim:
+            # residual connection + dropout + layer normalization
+            attn_output = self.norm((x + self.dropout(attn_output)).permute(0, 2, 1)).permute(0, 2, 1)
+        
         # apply the first feedforward layer
         # 1. reshape attn_output to (batch_size * seq_length, embed_dim)
         attn_output_reshaped = attn_output.permute(0, 2, 1).reshape(-1, self.embed_dim)
@@ -225,7 +235,7 @@ class TFB(nn.Module):
         # 4. apply relu
         f1_output = torch.relu(f1_output)
         
-        return f1_output
+        return f1_output, attn_output
     
     def forward_ff2(self, x):
         """Get the output of the second feedforward layer
@@ -239,7 +249,7 @@ class TFB(nn.Module):
         batch_size, seq_length = x.shape[0], x.shape[2]
         
         # get the output of the first feedforward layer
-        f1_output = self.forward_ff1(x)
+        f1_output, attn_output = self.forward_ff1(x)
         
         # apply the second feedforward layer
         # 1. reshape f1_output to (batch_size * seq_length, embed_dim)
@@ -252,6 +262,10 @@ class TFB(nn.Module):
         if self.apply_lora and self.is_last:
             # f2_output: (batch_size, embed_dim, seq_length)
             f2_output = f2_output + self.W2_lora(f1_output)
+            
+        if self.better_optim:
+            # residual connection + dropout + layer normalization
+            f2_output = self.norm((attn_output + self.dropout(f2_output)).permute(0, 2, 1)).permute(0, 2, 1)
             
         return f2_output
         
@@ -276,6 +290,8 @@ class TFN(nn.Module):
         rank,
         std,
         apply_lora,
+        better_optim = 0,
+        dropout = 0.1,
     ):
         super().__init__()
         
@@ -288,6 +304,8 @@ class TFN(nn.Module):
                 std,
                 apply_lora,
                 is_last = False,
+                better_optim = better_optim,
+                dropout = dropout,
             ) for _ in range(depth-1)]
         )
         
@@ -298,6 +316,8 @@ class TFN(nn.Module):
                 std,
                 apply_lora,
                 is_last = True,
+                better_optim = better_optim,
+                dropout = dropout,
         ))
         
         self.output_layer = nn.Linear(embed_dim, embed_dim, bias = False)
