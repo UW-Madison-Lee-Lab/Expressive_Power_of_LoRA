@@ -1,5 +1,5 @@
 import numpy as np
-import random, wandb, torch
+import random, wandb, torch, argparse
 
 def set_seed(seed_value = 123):
     """Set seeds for reproducibility."""
@@ -75,3 +75,11 @@ def our_construction(target_weight, frozen_weights, rank, log_wandb, atol = 1e-3
         print("The maximum discrepancy is", (torch.abs(adapted_prod_weight - target_weight).max()/torch.abs(target_weight).max()).item())
 
     return lora_A, lora_B    
+
+def my_int(value):
+    if value == 'inf':
+        return float('inf')
+    try:
+        return int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid int value: {value}")

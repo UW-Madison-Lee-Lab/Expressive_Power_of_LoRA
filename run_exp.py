@@ -2,7 +2,6 @@ from load_model import *
 from copy import deepcopy
 from tqdm import tqdm
 from torch import optim
-import argparse
 
 class approx_fnn:
     def __init__(
@@ -31,6 +30,8 @@ class approx_fnn:
         seed = 123,
         rank_step = 0,
         task = 'regression', # ['regression', 'classification', 'binary_classification']
+        n_train = float('inf'),
+        best_epoch = 1,
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -46,6 +47,7 @@ class approx_fnn:
         self.best_val = None
         self.n_val = batch_size
         self.n_test = n_test
+        self.n_train = n_train
         
         
         if rank_step != 0 and method == 'ours':
@@ -74,6 +76,11 @@ class approx_fnn:
                 pretrained_lr,
                 pretrained_level,
             )
+            
+        if n_train != float('inf'):
+            self.x_train = torch.randn(n_train, self.width)
+            self.y_train = self.target_m(self.x_train).detach()
+            self.y_train.requires_grad = False
         
         # perform finetune
         if method == 'ours':
@@ -97,10 +104,25 @@ class approx_fnn:
         else:
             raise NotImplementedError(f"We only support ours, sgd, and flt for parameter method, and {method} is not supported.")
         
-        if method == 'ours': 
+        if (method == 'ours') or (best_epoch == 0): 
             # evaluate the adapted model
             self.test(adapted_m)
         
+        if not self.wandb:
+            # print the test loss
+            print(f"Test loss: {self.test_loss:.4f}")
+            
+            if self.task == 'classification':
+                print(f"Test classification accuracy: {self.test_accuracy:.4f}")
+            elif self.task == 'binary_classification':
+                print(f"Test binary classification accuracy: {self.test_accuracy:.4f}")
+                
+            print(f'Test loss on shifted test set: {self.test_shift_loss:.4f}')
+            
+            if self.task == 'classification':
+                print(f"Test classification accuracy on shifted test set: {self.test_shift_accuracy:.4f}")
+            elif self.task == 'binary_classification':
+                print(f"Test binary classification accuracy on shifted test set: {self.test_shift_accuracy:.4f}")
         
     def init_models(
         self,
@@ -237,11 +259,16 @@ class approx_fnn:
         for i in iter_obj:
             adapted_m.train()
             
-            # generate random input from some Gaussian distribution
-            x_train = torch.randn(batch_size, self.width) 
+            if self.n_train == float('inf'):
+                # generate random input from some Gaussian distribution
+                x_train = torch.randn(batch_size, self.width) 
 
-            y_train = self.target_m(x_train).detach()
-            y_train.requires_grad = False
+                y_train = self.target_m(x_train).detach()
+                y_train.requires_grad = False
+            else:
+                # load the training set
+                x_train = self.x_train
+                y_train = self.y_train
             
             y_pred = adapted_m(x_train)
             
@@ -258,7 +285,7 @@ class approx_fnn:
             val_output = self.val(adapted_m)
             
             # update tqdm description with current loss
-            iter_obj.set_description(f"Train loss: {self.train_loss.item():.4f} | Val output: {val_output:.4f}")
+            iter_obj.set_description(f"Train loss: {self.train_loss.item():.4f} | Val loss: {self.val_loss:.4f}")
                 
             if self.task == 'regression':
                 if self.best_val is None or val_output < self.best_val:
@@ -404,22 +431,16 @@ class approx_fnn:
         y_pred = adapted_model(x_val)
         self.val_loss = self.criterion(y_pred, y_val)
         
-        if self.wandb:
-            wandb.log({'val_loss': self.val_loss})
-        else:
-            print(f"Val loss: {self.val_loss:.4f}")
+        if self.wandb: wandb.log({'val_loss': self.val_loss})
             
         if self.task == 'classification':
             y_val = torch.max(y_val, dim = 1)[1]
             y_pred = torch.max(y_pred, dim = 1)[1]
             val_accuracy = y_val.eq(y_pred).sum().item() / self.n_val
             
-            if self.wandb:
-                wandb.log({'val_acc': val_accuracy})
-            else:
-                print(f"Val classification accuracy: {val_accuracy:.4f}")     
-                
+            if self.wandb: wandb.log({'val_acc': val_accuracy})    
             return val_accuracy
+        
         elif self.task == 'binary_classification':
             y_val = torch.max(y_val @ self.W_out, dim = 1)[1]
             y_pred = torch.max(y_pred @ self.W_out, dim = 1)[1]
@@ -450,29 +471,21 @@ class approx_fnn:
         loss = self.criterion(y_pred, y_test)
         
         self.test_loss = loss.item()
-        if self.wandb:
-            wandb.log({'test_loss': self.test_loss})
-        else:
-            print(f"Test loss: {self.test_loss:.4f}")
+        if self.wandb: wandb.log({'test_loss': self.test_loss})
             
         if self.task == 'classification':
             y_test = torch.max(y_test, dim = 1)[1]
             y_pred = torch.max(y_pred, dim = 1)[1]
-            test_accuracy = y_test.eq(y_pred).sum().item() / self.n_test
+            self.test_accuracy = y_test.eq(y_pred).sum().item() / self.n_test
             
-            if self.wandb:
-                wandb.log({'test_acc': test_accuracy})
-            else:
-                print(f"Test classification accuracy: {test_accuracy:.4f}")    
+            if self.wandb: wandb.log({'test_acc': self.test_accuracy})
+  
         elif self.task == 'binary_classification':
             y_test = torch.max(y_test @ self.W_out, dim = 1)[1]
             y_pred = torch.max(y_pred @ self.W_out, dim = 1)[1]
-            test_accuracy = y_test.eq(y_pred).sum().item() / self.n_test
+            self.test_accuracy = y_test.eq(y_pred).sum().item() / self.n_test
             
-            if self.wandb:
-                wandb.log({'test_acc': test_accuracy})
-            else:
-                print(f"Test binary classification accuracy: {test_accuracy:.4f}")
+            if self.wandb: wandb.log({'test_acc': self.test_accuracy})
                 
         # out-of-distribution test set
         # generate random input from some Gaussian distribution
@@ -483,33 +496,23 @@ class approx_fnn:
         y_pred = adapted_model(x_test)
         loss = self.criterion(y_pred, y_test)
         
-        self.test_loss = loss.item()
-        if self.wandb:
-            wandb.log({'test_shift_loss': self.test_loss})
-        else:
-            print(f"Test loss on shifted test set: {self.test_loss:.4f}")
-            
+        self.test_shift_loss = loss.item()
+        if self.wandb: wandb.log({'test_shift_loss': self.test_shift_loss})
+    
         if self.task == 'classification':
             y_test = torch.max(y_test, dim = 1)[1]
             y_pred = torch.max(y_pred, dim = 1)[1]
             
-            test_accuracy = y_test.eq(y_pred).sum().item() / self.n_test
+            self.test_shift_accuracy = y_test.eq(y_pred).sum().item() / self.n_test
             
-            if self.wandb:
-                wandb.log({'test_shift_acc': test_accuracy})
-            else:
-                print(f"Test classification accuracy on shifted test set: {test_accuracy:.4f}")    
+            if self.wandb: wandb.log({'test_shift_acc': self.test_shift_accuracy})
         elif self.task == 'binary_classification':
             y_test = torch.max(y_test @ self.W_out, dim = 1)[1]
             y_pred = torch.max(y_pred @ self.W_out, dim = 1)[1]
             
-            test_accuracy = y_test.eq(y_pred).sum().item() / self.n_test
+            self.test_shift_accuracy = y_test.eq(y_pred).sum().item() / self.n_test
             
-            if self.wandb:
-                wandb.log({'test_shift_acc': test_accuracy})
-            else:
-                print(f"Test binary classification accuracy on shifted test set: {test_accuracy:.4f}")
-                
+            if self.wandb: wandb.log({'test_shift_acc': self.test_shift_accuracy})            
         
 class approx_tfn:
     def __init__(
@@ -533,7 +536,9 @@ class approx_tfn:
         pretrained_level = 3,
         seed = 123,
         better_optim = 0, # [0, 1]
-        dropout = 0.1
+        dropout = 0.1,
+        n_train = float('inf'),
+        best_epoch = 0,
     ):
         self.seed = seed
         set_seed(self.seed)
@@ -552,6 +557,7 @@ class approx_tfn:
         self.best_val = None
         self.n_test = n_test
         self.better_optim = better_optim
+        self.n_train = n_train
 
         if pretrained:
             self.pretrained(
@@ -560,6 +566,11 @@ class approx_tfn:
                 pretrained_lr,
                 pretrained_level,
             )
+            
+        if n_train != float('inf'):
+            self.X_train = torch.randn(n_train, self.embed_dim, self.seq_length)
+            self.Y_train = self.target_m(self.X_train).detach()
+            self.Y_train.requires_grad = False
         
         # perform finetune
         if method == 'ours':
@@ -576,9 +587,15 @@ class approx_tfn:
         else:
             raise NotImplementedError(f"We only support ours and sgd for parameter method, and {method} is not supported.")
         
-        if method == 'ours':
+        if (method == 'ours') or (best_epoch == 0):
             # evaluate the adapted model
             self.eval(adapted_m, n_test = n_test)
+        
+        if not self.wandb:
+            # print the test loss
+            print(f"Test loss: {self.test_loss:.4f}")
+            
+            print(f'Test loss on shifted test set: {self.test_shift_loss:.4f}')
             
         
     def init_models(
@@ -738,11 +755,16 @@ class approx_tfn:
         for i in iter_obj:
             adapted_m.train()
             
-            # generate random input from some Gaussian distribution
-            X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
+            if self.n_train == float('inf'):
+                # generate random input from some Gaussian distribution
+                X_train = torch.randn(batch_size, self.embed_dim, self.seq_length)
 
-            Y_train = self.target_m(X_train).detach()
-            Y_train.requires_grad = False
+                Y_train = self.target_m(X_train).detach()
+                Y_train.requires_grad = False
+            else:
+                # load the training set
+                X_train = self.X_train
+                Y_train = self.Y_train
             
             Y_pred = adapted_m(X_train)
             self.train_loss = self.criterion(Y_pred, Y_train)
@@ -904,8 +926,7 @@ class approx_tfn:
         
         self.test_loss = loss.item()
         
-        if self.wandb:
-            wandb.log({'test_loss': self.test_loss})
+        if self.wandb: wandb.log({'test_loss': self.test_loss})
 
         # out-of-distribution test set
         # generate random input from some Gaussian distribution
@@ -918,8 +939,7 @@ class approx_tfn:
         
         self.test_loss = loss.item()
         
-        if self.wandb:
-            wandb.log({'test_shift_loss': self.test_loss})
+        if self.wandb: wandb.log({'test_shift_loss': self.test_loss})
             
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -946,6 +966,8 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=123)
     parser.add_argument('--rank_step', type=int, default=0)
     parser.add_argument('--task', type=str, default='regression', choices = ['classification', 'regression', 'binary_classification'])
+    parser.add_argument('--n_train', type=my_int, default='inf')
+    parser.add_argument('--best_epoch', type=int, default=0, choices=[0,1])
 
     parser.add_argument('--n_head', type=int, default=2)
     parser.add_argument('--seq_length', type=int, default=10)
@@ -1000,6 +1022,8 @@ if __name__ == '__main__':
             seed = args.seed,
             rank_step = args.rank_step,
             task = args.task,
+            n_train = args.n_train,
+            best_epoch = args.best_epoch,
         )
 
     elif args.exp == 'tfn':
@@ -1007,6 +1031,8 @@ if __name__ == '__main__':
             raise NotImplementedError(f"our method only support the case where the target depth is equal to the frozen depth for TFN. Please try sgd instead.")
         if args.init_mode == 'uniform_singular_values':
             raise NotImplementedError(f"uniform_singular_values is not supported for TFN. Please try default instead.")
+        if args.task in ['classification', 'binary_classification']:
+            raise NotImplementedError(f"Classification is not supported for TFN. Please try FNN instead.")
             
         approx_tfn(
             embed_dim = args.width,
@@ -1029,6 +1055,8 @@ if __name__ == '__main__':
             seed = args.seed,
             better_optim = args.better_optim,
             dropout = args.dropout,
+            n_train = args.n_train,
+            best_epoch = args.best_epoch,
         )
 
     if args.wandb:
